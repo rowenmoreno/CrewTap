@@ -1,6 +1,6 @@
 {
-    "name": "crew_link",
-    "short_name": "crew_link",
+    "name": "CrewLink",
+    "short_name": "CrewLink",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

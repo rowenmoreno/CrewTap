@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -7,6 +8,7 @@ import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'dart:ui' as ui;
 
 class MyQRTab extends StatefulWidget {
   const MyQRTab({super.key});
@@ -16,10 +18,13 @@ class MyQRTab extends StatefulWidget {
 }
 
 class _MyQRTabState extends State<MyQRTab> {
-  Map<String, dynamic>? userData;
-  Map<String, dynamic>? userProfile;
+  String? _qrData;
   bool _isLoading = true;
   bool _hasError = false;
+  String? _errorMessage;
+  User? _userData;
+  Map<String, dynamic>? _userProfile;
+  String? _groupName;
 
   @override
   void initState() {
@@ -27,215 +32,207 @@ class _MyQRTabState extends State<MyQRTab> {
     _loadUserData();
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser == null) {
-        setState(() {
-          _hasError = true;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Get user profile data
-      final profile = await SupabaseService.getProfile(currentUser.id);
-      setState(() {
-        userProfile = profile;
-      });
-
-      // Prepare user data for QR code
-      setState(() {
-        userData = {
-          'id': currentUser.id,
-          'email': currentUser.email,
-          'display_name': profile?['display_name'] ?? 'No Name Set',
-          'role': profile?['role'] ?? 'Role',
-          'company': profile?['company'] ?? 'Company',
-        };
-        _isLoading = false;
-      });
-    } catch (e) {
-      developer.log('Error loading user data', name: 'MyQRTab', error: e.toString());
-      setState(() {
-        _hasError = true;
-        _isLoading = false;
-      });
-    }
+  String _generateGroupName() {
+    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random();
+    return List.generate(8, (index) => chars[random.nextInt(chars.length)]).join();
   }
 
-  Future<void> _downloadQRCode() async {
+  Future<void> _loadUserData() async {
     try {
-      final qrPainter = QrPainter(
-        data: jsonEncode(userData),
-        version: QrVersions.auto,
-        gapless: false,
-        color: Colors.black,
-        emptyColor: Colors.white,
-      );
+      setState(() {
+        _isLoading = true;
+        _hasError = false;
+      });
 
-      final imageData = await qrPainter.toImageData(2048);
-      if (imageData == null) {
-        throw Exception('Failed to generate QR code image');
+      // Get current user
+      final user = SupabaseService.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('No user logged in');
       }
-      
-      // Save to temporary file
-      final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/crew_link_qr.png');
-      await tempFile.writeAsBytes(imageData.buffer.asUint8List());
 
-      // Share the file with a specific message for saving
-      await Share.shareXFiles(
-        [XFile(tempFile.path)],
-        text: 'Save my CrewLink QR code',
-      );
+      // Get user profile
+      final profileResponse = await SupabaseService.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .single();
 
-      // Clean up
-      await tempFile.delete();
+      if (profileResponse == null) {
+        throw Exception('Profile not found');
+      }
+
+      // Generate random group name
+      final groupName = _generateGroupName();
+
+      setState(() {
+        _userData = user;
+        _userProfile = profileResponse;
+        _groupName = groupName;
+        _qrData = 'crewlink://join/group/$groupName/${user.id}';
+        _isLoading = false;
+      });
     } catch (e) {
-      developer.log('Error saving QR code', name: 'MyQRTab', error: e.toString());
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to save QR code'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      debugPrint('Error loading user data: $e');
+      setState(() {
+        _hasError = true;
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
     }
   }
 
   Future<void> _shareQRCode() async {
+    if (_qrData == null) return;
+
     try {
-      final qrPainter = QrPainter(
-        data: jsonEncode(userData),
+      final qrImage = await QrPainter(
+        data: _qrData!,
         version: QrVersions.auto,
         gapless: false,
         color: Colors.black,
         emptyColor: Colors.white,
-      );
+      ).toImage(200);
 
-      final imageData = await qrPainter.toImageData(2048);
-      if (imageData == null) {
-        throw Exception('Failed to generate QR code image');
-      }
-      
-      // Save to temporary file
       final tempDir = await getTemporaryDirectory();
-      final tempFile = File('${tempDir.path}/crew_link_qr.png');
-      await tempFile.writeAsBytes(imageData.buffer.asUint8List());
-
-      // Share the file
-      await Share.shareXFiles(
-        [XFile(tempFile.path)],
-        text: 'Connect with me on CrewLink!',
-      );
-
-      // Clean up
-      await tempFile.delete();
+      final file = File('${tempDir.path}/qr_code.png');
+      final byteData = await qrImage.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData != null) {
+        await file.writeAsBytes(byteData.buffer.asUint8List());
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Join my CrewLink group: $_groupName',
+        );
+        await file.delete();
+      }
     } catch (e) {
-      developer.log('Error sharing QR code', name: 'MyQRTab', error: e.toString());
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to share QR code'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      debugPrint('Error sharing QR code: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to share QR code')),
+        );
+      }
+    }
+  }
+
+  Future<void> _downloadQRCode() async {
+    if (_qrData == null) return;
+
+    try {
+      final qrImage = await QrPainter(
+        data: _qrData!,
+        version: QrVersions.auto,
+        gapless: false,
+        color: Colors.black,
+        emptyColor: Colors.white,
+      ).toImage(200);
+
+      final tempDir = await getTemporaryDirectory();
+      final file = File('${tempDir.path}/qr_code.png');
+      final byteData = await qrImage.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData != null) {
+        await file.writeAsBytes(byteData.buffer.asUint8List());
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Join my CrewLink group: $_groupName',
+        );
+        await file.delete();
+      }
+    } catch (e) {
+      debugPrint('Error saving QR code: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to save QR code')),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_hasError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Failed to load user data',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadUserData,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (userData == null) {
-      return const Center(
-        child: Text('No user data available'),
-      );
-    }
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  QrImageView(
-                    data: jsonEncode(userData),
-                    version: QrVersions.auto,
-                    size: 200.0,
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Show this code to quickly connect with\ncrew.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      height: 1.5,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _shareQRCode,
-                    icon: const Icon(Icons.share),
-                    label: const Text('Share QR'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                    ),
+                if (_isLoading)
+                  const CircularProgressIndicator()
+                else if (_hasError)
+                  Column(
+                    children: [
+                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Error: $_errorMessage',
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: _loadUserData,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  )
+                else if (_qrData != null)
+                  Column(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.2),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            QrImageView(
+                              data: _qrData!,
+                              version: QrVersions.auto,
+                              size: 200.0,
+                              backgroundColor: Colors.white,
+                              foregroundColor: Colors.black,
+                            ),
+                            const Text(
+                              'Show this code to quickly connect with\ncrew.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey,
+                                height: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Row(
+                        children: [
+                               Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: _shareQRCode,
+                            icon: const Icon(Icons.share),
+                            label: const Text('Share QR'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                      ))],
+                      ),
+                    ],
                   ),
-                ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

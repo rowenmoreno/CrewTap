@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'package:image_picker/image_picker.dart';
+import '../../../services/supabase_service.dart';
 
 class ScanTab extends StatefulWidget {
   const ScanTab({super.key, required this.isActive});
@@ -18,6 +19,9 @@ class _ScanTabState extends State<ScanTab> {
   final ImagePicker _picker = ImagePicker();
   bool _hasScanned = false;
   bool _isProcessing = false;
+  String? _errorMessage;
+  bool _hasError = false;
+  Map<String, dynamic>? _scannedData;
 
   @override
   void dispose() {
@@ -44,26 +48,45 @@ class _ScanTabState extends State<ScanTab> {
     if (_hasScanned) return; // Prevent multiple scans
 
     final List<Barcode> barcodes = capture.barcodes;
+    debugPrint('Barcode detection: ${barcodes.length} barcodes found');
     
     for (final barcode in barcodes) {
-      if (barcode.rawValue == null) continue;
+      if (barcode.rawValue == null) {
+        debugPrint('Warning: Barcode with null raw value found');
+        continue;
+      }
 
       try {
-        final userData = jsonDecode(barcode.rawValue!);
-        developer.log('QR Code scanned', 
-            name: 'ScanTab',
-            error: 'Data: ${userData.toString()}');
+        debugPrint('Processing barcode: ${barcode.rawValue}');
+        final uri = Uri.parse(barcode.rawValue!);
+        
+        if (uri.scheme != 'crewlink' || uri.host != 'join' || uri.pathSegments[0] != 'group') {
+          debugPrint('Error: Invalid QR code format');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Invalid QR code format'),
+              backgroundColor: Colors.red,
+            ),
+          );
+          continue;
+        }
+
+        final groupName = uri.pathSegments[1];
+        final creatorId = uri.pathSegments[2];
+        debugPrint('Decoded QR data - Group: $groupName, Creator: $creatorId');
 
         setState(() {
           _hasScanned = true;
         });
 
-        _showUserDataDialog(userData);
+        _showUserDataDialog({
+          'group_name': groupName,
+          'creator_id': creatorId,
+        });
+
+        cameraController.start();
       } catch (e) {
-        developer.log('Error processing QR code',
-            name: 'ScanTab',
-            error: e.toString());
-        
+        debugPrint('Error processing QR code: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Invalid QR code format'),
@@ -75,62 +98,10 @@ class _ScanTabState extends State<ScanTab> {
   }
 
   void _showUserDataDialog(Map<String, dynamic> userData) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Crew Member Found'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              leading: CircleAvatar(
-                backgroundColor: Colors.blue.shade100,
-                child: const Icon(Icons.person, color: Colors.blue),
-              ),
-              title: Text(userData['display_name'] ?? 'No Name'),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '${userData['role'] ?? 'Role'} • ${userData['company'] ?? 'Company'}',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              setState(() {
-                _hasScanned = false;
-              });
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement connection request
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Connection request sent!'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-              setState(() {
-                _hasScanned = false;
-              });
-            },
-            child: const Text('Connect'),
-          ),
-        ],
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You\'ve been added to a new temporary group.'),
+        backgroundColor: Colors.green,
       ),
     );
   }
@@ -175,6 +146,124 @@ class _ScanTabState extends State<ScanTab> {
     }
   }
 
+  Future<void> _processQRCode(String? qrData) async {
+    if (qrData == null) {
+      setState(() {
+        _errorMessage = 'No QR code data found';
+        _hasError = true;
+      });
+      return;
+    }
+
+    try {
+      // Parse the URL format: crewlink://join/group/{group_name}/{creator_id}
+      final uri = Uri.parse(qrData);
+      if (uri.scheme != 'crewlink') {
+        print(uri.scheme);
+        throw Exception('Invalid QR code format');
+      }
+
+      final groupName = uri.pathSegments[1];
+      final creatorId = uri.pathSegments[2];
+
+      // Fetch creator's profile from Supabase
+      final profileResponse = await SupabaseService.client
+          .from('profiles')
+          .select()
+          .eq('id', creatorId)
+          .single();
+
+      if (profileResponse == null) {
+        throw Exception('Creator profile not found');
+      }
+
+      setState(() {
+        _scannedData = {
+          'group_name': groupName,
+          'creator_id': creatorId,
+          'creator_name': profileResponse['display_name'] ?? 'Unknown',
+          'creator_email': profileResponse['email'] ?? 'Unknown',
+        };
+        _hasError = false;
+      });
+    } catch (e) {
+      debugPrint('Error processing QR code: $e');
+      setState(() {
+        _errorMessage = e.toString();
+        _hasError = true;
+      });
+    }
+  }
+
+  void _showResultDialog() {
+    if (_scannedData == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Join Group'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Group Name: ${_scannedData!['group_name']}'),
+            const SizedBox(height: 8),
+            Text('Created by: ${_scannedData!['creator_name']}'),
+            Text('Email: ${_scannedData!['creator_email']}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _resetScan();
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              // TODO: Implement group joining logic
+              Navigator.pop(context);
+              _resetScan();
+            },
+            child: const Text('Join Group'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _resetScan() {
+    setState(() {
+      _hasScanned = false;
+      _errorMessage = null;
+      _hasError = false;
+      _scannedData = null;
+    });
+  }
+
+  Future<void> _onBarcodeDetect(List<Barcode> barcodes) async {
+    if (_isProcessing) return;
+
+    setState(() {
+      _isProcessing = true;
+    });
+
+    try {
+      if (barcodes.isNotEmpty) {
+        final qrData = barcodes.first.rawValue;
+        await _processQRCode(qrData);
+        if (!_hasError) {
+          _showResultDialog();
+        }
+      }
+    } finally {
+      setState(() {
+        _isProcessing = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.isActive) {
@@ -207,7 +296,7 @@ class _ScanTabState extends State<ScanTab> {
                 ),
               ),
               Positioned(
-                bottom: 100,
+                bottom: 80,
                 left: 0,
                 right: 0,
                 child: Column(
