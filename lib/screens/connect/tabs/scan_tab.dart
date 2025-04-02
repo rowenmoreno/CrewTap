@@ -44,6 +44,55 @@ class _ScanTabState extends State<ScanTab> {
     }
   }
 
+  Future<void> _createGroupAndJoin(String groupName, String creatorId) async {
+    try {
+      debugPrint('Creating group chat: $groupName');
+      
+      // Get current user's ID
+      final currentUser = SupabaseService.client.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Calculate expiry time (24 hours from now)
+      final now = DateTime.now();
+      final expiryTime = now.add(const Duration(hours: 24));
+
+      // Insert into chat table
+      final chatResponse = await SupabaseService.client
+          .from('chats')
+          .insert({
+            'name': groupName,
+            'type': 'group',
+            'created_at': now.toIso8601String(),
+            'created_by': currentUser.id,
+            'expiry_time': expiryTime.toIso8601String(),
+          })
+          .select()
+          .single();
+
+      if (chatResponse == null) {
+        throw Exception('Failed to create group chat');
+      }
+
+      debugPrint('Group chat created: ${chatResponse['id']}');
+
+      // Add current user as participant
+      // await SupabaseService.client
+      //     .from('chat_participants')
+      //     .insert({
+      //       'user_id': currentUser.id,
+      //       'chat_id': chatResponse['id'],
+      //       'joined_at': now.toIso8601String(),
+      //     });
+
+      debugPrint('User added to group chat');
+    } catch (e) {
+      debugPrint('Error creating group chat: $e');
+      rethrow;
+    }
+  }
+
   void _handleDetection(BarcodeCapture capture) {
     if (_hasScanned) return; // Prevent multiple scans
 
@@ -60,7 +109,7 @@ class _ScanTabState extends State<ScanTab> {
         debugPrint('Processing barcode: ${barcode.rawValue}');
         final uri = Uri.parse(barcode.rawValue!);
         
-        if (uri.scheme != 'crewlink') {
+        if (uri.scheme != 'crewlink' || uri.host != 'join' || uri.pathSegments[0] != 'group') {
           debugPrint('Error: Invalid QR code format');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -79,12 +128,22 @@ class _ScanTabState extends State<ScanTab> {
           _hasScanned = true;
         });
 
-        _showUserDataDialog({
-          'group_name': groupName,
-          'creator_id': creatorId,
+        // Create group and join before showing dialog
+        _createGroupAndJoin(groupName, creatorId).then((_) {
+          _showUserDataDialog({
+            'group_name': groupName,
+            'creator_id': creatorId,
+          });
+          cameraController.start();
+        }).catchError((error) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error joining group: ${error.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
         });
 
-        cameraController.start();
       } catch (e) {
         debugPrint('Error processing QR code: $e');
         ScaffoldMessenger.of(context).showSnackBar(
