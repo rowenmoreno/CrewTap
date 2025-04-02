@@ -60,7 +60,7 @@ class _ScanTabState extends State<ScanTab> {
         debugPrint('Processing barcode: ${barcode.rawValue}');
         final uri = Uri.parse(barcode.rawValue!);
         
-        if (uri.scheme != 'crewlink' || uri.host != 'join' || uri.pathSegments[0] != 'group') {
+        if (uri.scheme != 'crewlink') {
           debugPrint('Error: Invalid QR code format');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
