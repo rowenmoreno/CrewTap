@@ -44,9 +44,9 @@ class _ScanTabState extends State<ScanTab> {
     }
   }
 
-  Future<void> _createGroupAndJoin(String groupName, String creatorId) async {
+  Future<void> _createGroupAndJoin(String groupName, String creatorId, int durationHours) async {
     try {
-      debugPrint('Creating group chat: $groupName');
+      debugPrint('Creating group chat: $groupName with duration: $durationHours hours');
       
       // Get current user's ID
       final currentUser = SupabaseService.client.auth.currentUser;
@@ -54,9 +54,9 @@ class _ScanTabState extends State<ScanTab> {
         throw Exception('User not authenticated');
       }
 
-      // Calculate expiry time (24 hours from now)
+      // Calculate expiry time based on selected duration
       final now = DateTime.now();
-      final expiryTime = now.add(const Duration(hours: 24));
+      final expiryTime = now.add(Duration(hours: durationHours));
 
       // Insert into chat table
       final chatResponse = await SupabaseService.client
@@ -78,13 +78,13 @@ class _ScanTabState extends State<ScanTab> {
       debugPrint('Group chat created: ${chatResponse['id']}');
 
       // Add current user as participant
-      // await SupabaseService.client
-      //     .from('chat_participants')
-      //     .insert({
-      //       'user_id': currentUser.id,
-      //       'chat_id': chatResponse['id'],
-      //       'joined_at': now.toIso8601String(),
-      //     });
+      await SupabaseService.client
+          .from('chat_participants')
+          .insert({
+            'user_id': currentUser.id,
+            'chat_id': chatResponse['id'],
+            'joined_at': now.toIso8601String(),
+          });
 
       debugPrint('User added to group chat');
     } catch (e) {
@@ -93,7 +93,7 @@ class _ScanTabState extends State<ScanTab> {
     }
   }
 
-  void _handleDetection(BarcodeCapture capture) {
+  Future<void> _handleDetection(BarcodeCapture capture) async {
     if (_hasScanned) return; // Prevent multiple scans
 
     final List<Barcode> barcodes = capture.barcodes;
@@ -128,22 +128,40 @@ class _ScanTabState extends State<ScanTab> {
           _hasScanned = true;
         });
 
-        // Create group and join before showing dialog
-        _createGroupAndJoin(groupName, creatorId).then((_) {
+        // Fetch creator's profile
+        try {
+          final profileResponse = await SupabaseService.client
+              .from('profiles')
+              .select()
+              .eq('id', creatorId)
+              .single();
+
+          if (profileResponse == null) {
+            throw Exception('Creator profile not found');
+          }
+
+          debugPrint('Creator profile found: $profileResponse');
+
+          // Show dialog with creator's profile data
           _showUserDataDialog({
             'group_name': groupName,
             'creator_id': creatorId,
+            'creator_name': profileResponse['display_name'] ?? 'Unknown',
+            'role': profileResponse['position'] ?? 'Unknown',
           });
-          cameraController.start();
-        }).catchError((error) {
+        } catch (e) {
+          debugPrint('Error fetching creator profile: $e');
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error joining group: ${error.toString()}'),
+            const SnackBar(
+              content: Text('Error fetching creator profile'),
               backgroundColor: Colors.red,
             ),
           );
-        });
-
+          setState(() {
+            _hasScanned = false;
+          });
+        }
+        
       } catch (e) {
         debugPrint('Error processing QR code: $e');
         ScaffoldMessenger.of(context).showSnackBar(
@@ -157,10 +175,184 @@ class _ScanTabState extends State<ScanTab> {
   }
 
   void _showUserDataDialog(Map<String, dynamic> userData) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('You\'ve been added to a new temporary group.'),
-        backgroundColor: Colors.green,
+    final TextEditingController groupNameController = TextEditingController(
+      text: 'Connection with ${userData['creator_name']}',
+    );
+    
+    // Duration state
+    String selectedDuration = '24 hours';
+    final List<String> durations = ['24 hours', '48 hours', '72 hours'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text(
+            'QR Code Detected',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Connect with ${userData['creator_name']} (${userData['role']})',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Group Name',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: groupNameController,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Duration',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 0,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey[300]!,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedDuration,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 14,
+                      ),
+                      items: durations.map((String duration) {
+                        return DropdownMenuItem<String>(
+                          value: duration,
+                          child: Text(duration),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            selectedDuration = newValue;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(() {
+                  _hasScanned = false;
+                });
+                cameraController.start();
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  // Convert duration string to hours
+                  final hours = int.parse(selectedDuration.split(' ')[0]);
+                  await _createGroupAndJoin(
+                    groupNameController.text,
+                    userData['creator_id'],
+                    hours,
+                  );
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Successfully joined the group!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error joining group: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } finally {
+                  setState(() {
+                    _hasScanned = false;
+                  });
+                  cameraController.start();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Create Connection'),
+            ),
+          ],
+        ),
       ),
     );
   }
