@@ -1,18 +1,57 @@
 import 'package:flutter/material.dart';
+import '../services/supabase_service.dart';
+import 'dart:developer' as developer;
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _handleLogout(BuildContext context) async {
+    try {
+      developer.log('Attempting to log out...', name: 'ProfileScreen');
+      await SupabaseService.signOut();
+      developer.log('Logout successful', name: 'ProfileScreen');
+      
+      if (context.mounted) {
+        // Navigate to the root route which will handle auth state
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/',
+          (route) => false,
+        );
+      }
+    } catch (error) {
+      developer.log('Logout error', name: 'ProfileScreen', error: error.toString());
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error logging out: ${error.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Row(
+          children: [
+            // Image.asset(
+            //   'assets/images/logo.png',
+            //   height: 24,
+            // ),
+            // const SizedBox(width: 8),
+            const Text('Profile'),
+          ],
+        ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {},
+          CircleAvatar(
+            backgroundColor: Colors.grey[200],
+            child: const Text('JS'),
           ),
+          const SizedBox(width: 16),
         ],
       ),
       body: ListView(
@@ -64,10 +103,16 @@ class ProfileScreen extends StatelessWidget {
             trailing: const Icon(Icons.arrow_forward_ios),
             onTap: () {},
           ),
+          const Divider(),
           ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text('Logout'),
-            onTap: () {},
+            leading: const Icon(Icons.logout, color: Colors.red),
+            title: const Text(
+              'Logout',
+              style: TextStyle(
+                color: Colors.red,
+              ),
+            ),
+            onTap: () => _handleLogout(context),
           ),
         ],
       ),

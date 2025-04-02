@@ -2,35 +2,48 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config/supabase_config.dart';
 
 class SupabaseService {
-  static final SupabaseClient _client = SupabaseClient(
-    SupabaseConfig.url,
-    SupabaseConfig.anonKey,
-  );
+  static final SupabaseClient _client = Supabase.instance.client;
 
   static SupabaseClient get client => _client;
 
   // Auth operations
-  static Future<void> signIn({
+  static Future<AuthResponse> signIn({
     required String email,
     required String password,
   }) async {
-    await _client.auth.signInWithPassword(
+    final response = await _client.auth.signInWithPassword(
       email: email,
       password: password,
     );
+    
+    if (response.session == null) {
+      throw 'Authentication failed';
+    }
+    
+    return response;
   }
 
-  static Future<void> signUp({
+  static Future<AuthResponse> signUp({
     required String email,
     required String password,
   }) async {
-    await _client.auth.signUp(
+    final response = await _client.auth.signUp(
       email: email,
       password: password,
     );
+    
+    if (response.session == null && response.user == null) {
+      throw 'Registration failed';
+    }
+    
+    return response;
   }
 
   static Future<void> signOut() async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw 'No active session';
+    }
     await _client.auth.signOut();
   }
 
@@ -39,6 +52,11 @@ class SupabaseService {
     required String userId,
     required Map<String, dynamic> data,
   }) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw 'No active session';
+    }
+    
     await _client
         .from('profiles')
         .update(data)
@@ -46,6 +64,11 @@ class SupabaseService {
   }
 
   static Future<Map<String, dynamic>?> getProfile(String userId) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw 'No active session';
+    }
+    
     final response = await _client
         .from('profiles')
         .select()
@@ -59,6 +82,11 @@ class SupabaseService {
     required String userId,
     required String connectedUserId,
   }) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw 'No active session';
+    }
+    
     await _client.from('connections').insert({
       'user_id': userId,
       'connected_user_id': connectedUserId,
@@ -67,6 +95,11 @@ class SupabaseService {
   }
 
   static Future<List<Map<String, dynamic>>> getConnections(String userId) async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw 'No active session';
+    }
+    
     final response = await _client
         .from('connections')
         .select('*, profiles!connected_user_id(*)')

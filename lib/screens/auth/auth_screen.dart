@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/supabase_service.dart';
+import 'dart:developer' as developer;
 
 class AuthScreen extends StatefulWidget {
   final VoidCallback onAuthComplete;
@@ -37,36 +39,72 @@ class _AuthScreenState extends State<AuthScreen> {
     });
 
     try {
+      developer.log('Starting authentication process...',
+          name: 'AuthScreen',
+          error: 'Mode: ${_isSignIn ? "Sign In" : "Sign Up"}');
+
       if (_isSignIn) {
-        await SupabaseService.signIn(
+        developer.log('Attempting sign in...',
+            name: 'AuthScreen',
+            error: 'Email: ${_emailController.text}');
+
+        final response = await SupabaseService.signIn(
           email: _emailController.text,
           password: _passwordController.text,
         );
-        if (mounted) {
+        
+        developer.log('Sign in response received',
+            name: 'AuthScreen',
+            error: 'Session: ${response.session != null}');
+
+        if (mounted && response.session != null) {
+          developer.log('Sign in successful, proceeding to next screen',
+              name: 'AuthScreen');
           widget.onAuthComplete();
         }
       } else {
         if (_passwordController.text != _confirmPasswordController.text) {
           throw 'Passwords do not match';
         }
-        await SupabaseService.signUp(
+        
+        developer.log('Attempting sign up...',
+            name: 'AuthScreen',
+            error: 'Email: ${_emailController.text}');
+
+        final response = await SupabaseService.signUp(
           email: _emailController.text,
           password: _passwordController.text,
         );
+        
+        developer.log('Sign up response received',
+            name: 'AuthScreen',
+            error: 'Session: ${response.session != null}');
+
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Please check your email to verify your account'),
-              backgroundColor: Colors.green,
-            ),
-          );
-          // Switch to sign in mode after successful registration
-          setState(() {
-            _isSignIn = true;
-          });
+          if (response.session != null) {
+            developer.log('Sign up successful with auto-confirmation',
+                name: 'AuthScreen');
+            widget.onAuthComplete();
+          } else {
+            developer.log('Sign up successful, email verification required',
+                name: 'AuthScreen');
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please check your email to verify your account'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            setState(() {
+              _isSignIn = true;
+            });
+          }
         }
       }
     } catch (error) {
+      developer.log('Authentication error',
+          name: 'AuthScreen',
+          error: error.toString());
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
