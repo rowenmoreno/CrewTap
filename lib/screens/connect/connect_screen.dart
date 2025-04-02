@@ -82,6 +82,23 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
             ),
           ],
         ),
+        title: Row(
+          children: [
+            // Image.asset(
+            //   'assets/images/logo.png',
+            //   height: 24,
+            // ),
+            // const SizedBox(width: 8),
+            const Text('Connect'),
+          ],
+        ),
+        actions: [
+          // CircleAvatar(
+          //   backgroundColor: Colors.grey[200],
+          //   child: const Text('JS'),
+          // ),
+          // const SizedBox(width: 16),
+        ],
       ),
       body: TabBarView(
         controller: _tabController,
