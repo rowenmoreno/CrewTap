@@ -7,17 +7,22 @@ import 'dart:convert';
 import 'dart:math';
 
 class TapTab extends StatefulWidget {
-  const TapTab({super.key});
+  const TapTab({
+    super.key,
+    required this.userId,
+    required this.displayName,
+    required this.position,
+  });
+
+  final String userId;
+  final String displayName;
+  final String position;
 
   @override
   State<TapTab> createState() => _TapTabState();
 }
 
 class _TapTabState extends State<TapTab> {
-  Map<String, dynamic>? userData;
-  Map<String, dynamic>? userProfile;
-  bool _isLoading = true;
-  bool _hasError = false;
   bool _isNfcAvailable = false;
   bool _isNfcSessionStarted = false;
   bool _isWriting = false;
@@ -26,7 +31,6 @@ class _TapTabState extends State<TapTab> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
     _checkNfcAvailability();
   }
 
@@ -353,76 +357,8 @@ class _TapTabState extends State<TapTab> {
     );
   }
 
-  Future<void> _loadUserData() async {
-    try {
-      final currentUser = Supabase.instance.client.auth.currentUser;
-      if (currentUser == null) {
-        setState(() {
-          _hasError = true;
-          _isLoading = false;
-        });
-        return;
-      }
-
-      // Get user profile data
-      final profile = await SupabaseService.getProfile(currentUser.id);
-      setState(() {
-        userProfile = profile;
-      });
-
-      // Prepare user data
-      setState(() {
-        userData = {
-          'id': currentUser.id,
-          'email': currentUser.email,
-          'display_name': profile?['display_name'] ?? 'No Name Set',
-          'role': profile?['role'] ?? 'Role',
-          'company': profile?['company'] ?? 'Company',
-        };
-        _isLoading = false;
-      });
-    } catch (e) {
-      developer.log('Error loading user data', name: 'TapTab', error: e.toString());
-      setState(() {
-        _hasError = true;
-        _isLoading = false;
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
-
-    if (_hasError) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text(
-              'Failed to load user data',
-              style: TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _loadUserData,
-              child: const Text('Retry'),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (userData == null) {
-      return const Center(
-        child: Text('No user data available'),
-      );
-    }
-
     if (!_isNfcAvailable) {
       return Center(
         child: Column(
@@ -531,7 +467,7 @@ class _TapTabState extends State<TapTab> {
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    userData!['display_name'] ?? 'No Name Set',
+                    widget.displayName,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -540,16 +476,7 @@ class _TapTabState extends State<TapTab> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    userData!['email'] ?? '',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${userData!['role']} • ${userData!['company']}',
+                    widget.position,
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],

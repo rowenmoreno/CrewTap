@@ -101,7 +101,11 @@ class _ConnectScreenState extends State<ConnectScreen> {
             position: _userProfile?['position'] ?? "Role",
           ),
           ScanTab(isActive: _selectedIndex == 1),
-          TapTab(),
+          TapTab(
+            userId: SupabaseService.client.auth.currentUser!.id,
+            displayName: _userProfile?['display_name'] ?? "Name",
+            position: _userProfile?['position'] ?? "Role",
+          ),
         ],
       ),
       bottomNavigationBar: BottomNavigationBar(
