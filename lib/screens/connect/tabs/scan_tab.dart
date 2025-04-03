@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:convert';
-import 'dart:developer' as developer;
 import 'package:image_picker/image_picker.dart';
 import '../../../services/supabase_service.dart';
 
@@ -19,9 +18,6 @@ class _ScanTabState extends State<ScanTab> {
   final ImagePicker _picker = ImagePicker();
   bool _hasScanned = false;
   bool _isProcessing = false;
-  String? _errorMessage;
-  bool _hasError = false;
-  Map<String, dynamic>? _scannedData;
 
   @override
   void dispose() {
@@ -109,7 +105,7 @@ class _ScanTabState extends State<ScanTab> {
         debugPrint('Processing barcode: ${barcode.rawValue}');
         final uri = Uri.parse(barcode.rawValue!);
         
-        if (uri.scheme != 'crewlink' || uri.host != 'join' || uri.pathSegments[0] != 'group') {
+        if (uri.scheme != 'crewlink') {
           debugPrint('Error: Invalid QR code format');
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -122,45 +118,22 @@ class _ScanTabState extends State<ScanTab> {
 
         final groupName = uri.pathSegments[1];
         final creatorId = uri.pathSegments[2];
-        debugPrint('Decoded QR data - Group: $groupName, Creator: $creatorId');
+        final creatorName = uri.pathSegments.length > 3 ? uri.pathSegments[3] : 'Name';
+        final creatorRole = uri.pathSegments.length > 4 ? uri.pathSegments[4] : 'Role';
+        
+        debugPrint('Decoded QR data - Group: $groupName, Creator: $creatorId, Name: $creatorName, Role: $creatorRole');
 
         setState(() {
           _hasScanned = true;
         });
 
-        // Fetch creator's profile
-        try {
-          final profileResponse = await SupabaseService.client
-              .from('profiles')
-              .select()
-              .eq('id', creatorId)
-              .single();
-
-          if (profileResponse == null) {
-            throw Exception('Creator profile not found');
-          }
-
-          debugPrint('Creator profile found: $profileResponse');
-
-          // Show dialog with creator's profile data
-          _showUserDataDialog({
-            'group_name': groupName,
-            'creator_id': creatorId,
-            'creator_name': profileResponse['display_name'] ?? 'Unknown',
-            'role': profileResponse['position'] ?? 'Unknown',
-          });
-        } catch (e) {
-          debugPrint('Error fetching creator profile: $e');
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Error fetching creator profile'),
-              backgroundColor: Colors.red,
-            ),
-          );
-          setState(() {
-            _hasScanned = false;
-          });
-        }
+        // Show dialog with creator's data from QR code
+        _showUserDataDialog({
+          'group_name': groupName,
+          'creator_id': creatorId,
+          'creator_name': creatorName,
+          'role': creatorRole,
+        });
         
       } catch (e) {
         debugPrint('Error processing QR code: $e');
@@ -380,7 +353,7 @@ class _ScanTabState extends State<ScanTab> {
       // We don't need to process it here
       
     } catch (e) {
-      developer.log('Error processing image', name: 'ScanTab', error: e.toString());
+      debugPrint('Error processing image: $e');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -394,124 +367,6 @@ class _ScanTabState extends State<ScanTab> {
           _isProcessing = false;
         });
       }
-    }
-  }
-
-  Future<void> _processQRCode(String? qrData) async {
-    if (qrData == null) {
-      setState(() {
-        _errorMessage = 'No QR code data found';
-        _hasError = true;
-      });
-      return;
-    }
-
-    try {
-      // Parse the URL format: crewlink://join/group/{group_name}/{creator_id}
-      final uri = Uri.parse(qrData);
-      if (uri.scheme != 'crewlink') {
-        print(uri.scheme);
-        throw Exception('Invalid QR code format');
-      }
-
-      final groupName = uri.pathSegments[1];
-      final creatorId = uri.pathSegments[2];
-
-      // Fetch creator's profile from Supabase
-      final profileResponse = await SupabaseService.client
-          .from('profiles')
-          .select()
-          .eq('id', creatorId)
-          .single();
-
-      if (profileResponse == null) {
-        throw Exception('Creator profile not found');
-      }
-
-      setState(() {
-        _scannedData = {
-          'group_name': groupName,
-          'creator_id': creatorId,
-          'creator_name': profileResponse['display_name'] ?? 'Unknown',
-          'creator_email': profileResponse['email'] ?? 'Unknown',
-        };
-        _hasError = false;
-      });
-    } catch (e) {
-      debugPrint('Error processing QR code: $e');
-      setState(() {
-        _errorMessage = e.toString();
-        _hasError = true;
-      });
-    }
-  }
-
-  void _showResultDialog() {
-    if (_scannedData == null) return;
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Join Group'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Group Name: ${_scannedData!['group_name']}'),
-            const SizedBox(height: 8),
-            Text('Created by: ${_scannedData!['creator_name']}'),
-            Text('Email: ${_scannedData!['creator_email']}'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _resetScan();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement group joining logic
-              Navigator.pop(context);
-              _resetScan();
-            },
-            child: const Text('Join Group'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _resetScan() {
-    setState(() {
-      _hasScanned = false;
-      _errorMessage = null;
-      _hasError = false;
-      _scannedData = null;
-    });
-  }
-
-  Future<void> _onBarcodeDetect(List<Barcode> barcodes) async {
-    if (_isProcessing) return;
-
-    setState(() {
-      _isProcessing = true;
-    });
-
-    try {
-      if (barcodes.isNotEmpty) {
-        final qrData = barcodes.first.rawValue;
-        await _processQRCode(qrData);
-        if (!_hasError) {
-          _showResultDialog();
-        }
-      }
-    } finally {
-      setState(() {
-        _isProcessing = false;
-      });
     }
   }
 

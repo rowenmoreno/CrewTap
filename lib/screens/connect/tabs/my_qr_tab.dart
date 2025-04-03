@@ -69,7 +69,7 @@ class _MyQRTabState extends State<MyQRTab> {
         _userData = user;
         _userProfile = profileResponse;
         _groupName = groupName;
-        _qrData = 'crewlink://join/group/$groupName/${user.id}';
+        _qrData = 'crewlink://join/group/$groupName/${user.id}/${profileResponse['display_name']}/${profileResponse['position']}';
         _isLoading = false;
       });
     } catch (e) {
