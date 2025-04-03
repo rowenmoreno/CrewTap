@@ -118,7 +118,7 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
             displayName: _userProfile?['display_name'] ?? "Name",
             position: _userProfile?['position'] ?? "Role",
           ),
-          ScanTab(isActive: _tabController.index == 1),
+          const ScanTab(),
           TapTab(
             userId: SupabaseService.client.auth.currentUser!.id,
             displayName: _userProfile?['display_name'] ?? "Name",

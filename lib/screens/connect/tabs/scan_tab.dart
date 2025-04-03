@@ -5,38 +5,38 @@ import 'package:image_picker/image_picker.dart';
 import '../../../services/supabase_service.dart';
 
 class ScanTab extends StatefulWidget {
-  const ScanTab({super.key, required this.isActive});
-
-  final bool isActive;
+  const ScanTab({super.key});
 
   @override
   State<ScanTab> createState() => _ScanTabState();
 }
 
-class _ScanTabState extends State<ScanTab> {
+class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
   final MobileScannerController cameraController = MobileScannerController();
   final ImagePicker _picker = ImagePicker();
   bool _hasScanned = false;
   bool _isProcessing = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    cameraController.start();
+  }
+
+  @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     cameraController.dispose();
     super.dispose();
   }
 
   @override
-  void didUpdateWidget(ScanTab oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isActive != oldWidget.isActive) {
-      if (widget.isActive) {
-        cameraController.start();
-        setState(() {
-          _hasScanned = false;
-        });
-      } else {
-        cameraController.stop();
-      }
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      cameraController.start();
+    } else {
+      cameraController.stop();
     }
   }
 
@@ -372,10 +372,6 @@ class _ScanTabState extends State<ScanTab> {
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.isActive) {
-      return const SizedBox.shrink();
-    }
-
     return Stack(
       children: [
         MobileScanner(
