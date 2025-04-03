@@ -4,6 +4,7 @@ import '../../../services/supabase_service.dart';
 import 'dart:developer' as developer;
 import 'package:nfc_manager/nfc_manager.dart';
 import 'dart:convert';
+import 'dart:math';
 
 class TapTab extends StatefulWidget {
   const TapTab({super.key});
@@ -19,6 +20,8 @@ class _TapTabState extends State<TapTab> {
   bool _hasError = false;
   bool _isNfcAvailable = false;
   bool _isNfcSessionStarted = false;
+  bool _isWriting = false;
+  bool _isPeerDetected = false;
 
   @override
   void initState() {
@@ -50,40 +53,54 @@ class _TapTabState extends State<TapTab> {
 
     setState(() {
       _isNfcSessionStarted = true;
+      _isPeerDetected = false;
     });
 
     try {
       await NfcManager.instance.startSession(
         onDiscovered: (NfcTag tag) async {
           try {
-            var ndef = Ndef.from(tag);
+            final ndef = Ndef.from(tag);
             if (ndef == null) {
-              _showMessage('This NFC tag is not NDEF formatted');
+              _showMessage('Tag is not NDEF formatted');
               return;
             }
 
-            var message = await ndef.read();
-            if (message == null) {
-              _showMessage('No data found on this NFC tag');
+            final message = await ndef.read();
+            if (message.records.isEmpty) {
+              _showMessage('No NDEF records found');
               return;
             }
 
-            var record = message.records.first;
-            if (record.typeNameFormat != NdefTypeNameFormat.nfcWellknown ||
-                record.type.length != 1 ||
-                record.type.first != 0x54) {
-              _showMessage('Invalid NFC data format');
+            final record = message.records.first;
+            if (record.typeNameFormat != NdefTypeNameFormat.nfcWellknown) {
+              _showMessage('Invalid NDEF record format');
               return;
             }
 
-            var text = String.fromCharCodes(record.payload);
-            try {
-              final userData = jsonDecode(text);
-              if (!mounted) return;
-              _showUserDataDialog(userData);
-            } catch (e) {
-              _showMessage('Invalid data format');
+            final payload = String.fromCharCodes(record.payload);
+            if (!payload.startsWith('crewlink://join/group/')) {
+              _showMessage('Invalid NDEF record format');
+              return;
             }
+
+            final uri = Uri.parse(payload);
+            final groupName = uri.pathSegments[1];
+            final creatorId = uri.pathSegments[2];
+            final creatorName = uri.pathSegments.length > 3 ? uri.pathSegments[3] : 'Name';
+            final creatorRole = uri.pathSegments.length > 4 ? uri.pathSegments[4] : 'Role';
+
+            debugPrint('Decoded NFC data - Group: $groupName, Creator: $creatorId, Name: $creatorName, Role: $creatorRole');
+
+            if (!mounted) return;
+            
+            // Show peer detection dialog
+            _showPeerDetectedDialog({
+              'group_name': groupName,
+              'creator_id': creatorId,
+              'creator_name': creatorName,
+              'role': creatorRole,
+            });
           } catch (e) {
             _showMessage('Error reading NFC tag: ${e.toString()}');
           }
@@ -98,11 +115,232 @@ class _TapTabState extends State<TapTab> {
     }
   }
 
-  void _stopNfcSession() {
-    NfcManager.instance.stopSession();
-    setState(() {
-      _isNfcSessionStarted = false;
-    });
+  void _showPeerDetectedDialog(Map<String, dynamic> peerData) {
+    if (!mounted) return;
+    
+    final TextEditingController groupNameController = TextEditingController(
+      text: 'Connection with ${peerData['creator_name']}',
+    );
+    
+    // Duration state
+    String selectedDuration = '24 hours';
+    final List<String> durations = ['24 hours', '48 hours', '72 hours'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text(
+            'Crew Member Detected',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Connect with ${peerData['creator_name']} (${peerData['role']})',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 24),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Group Name',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: groupNameController,
+                    decoration: InputDecoration(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(
+                          color: Colors.grey[300]!,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Duration',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 0,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey[300]!,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedDuration,
+                      isExpanded: true,
+                      underline: const SizedBox(),
+                      style: TextStyle(
+                        color: Colors.grey[700],
+                        fontSize: 14,
+                      ),
+                      items: durations.map((String duration) {
+                        return DropdownMenuItem<String>(
+                          value: duration,
+                          child: Text(duration),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        if (newValue != null) {
+                          setState(() {
+                            selectedDuration = newValue;
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _startNfcSession();
+              },
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                try {
+                  // Convert duration string to hours
+                  final hours = int.parse(selectedDuration.split(' ')[0]);
+                  await _createGroupAndJoin(
+                    groupNameController.text,
+                    peerData['creator_id'],
+                    hours,
+                  );
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Successfully joined the group!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Error joining group: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                  }
+                } finally {
+                  _startNfcSession();
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF0F172A),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Create Connection'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _createGroupAndJoin(String groupName, String creatorId, int durationHours) async {
+    try {
+      debugPrint('Creating group chat: $groupName with duration: $durationHours hours');
+      
+      // Get current user's ID
+      final currentUser = SupabaseService.client.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Calculate expiry time based on selected duration
+      final now = DateTime.now();
+      final expiryTime = now.add(Duration(hours: durationHours));
+
+      // Insert into chat table
+      final chatResponse = await SupabaseService.client
+          .from('chats')
+          .insert({
+            'name': groupName,
+            'type': 'group',
+            'created_at': now.toIso8601String(),
+            'created_by': currentUser.id,
+            'expiry_time': expiryTime.toIso8601String(),
+          })
+          .select()
+          .single();
+
+      if (chatResponse == null) {
+        throw Exception('Failed to create group chat');
+      }
+
+      debugPrint('Group chat created: ${chatResponse['id']}');
+
+      // Add current user as participant
+      await SupabaseService.client
+          .from('chat_participants')
+          .insert({
+            'user_id': currentUser.id,
+            'chat_id': chatResponse['id'],
+            'joined_at': now.toIso8601String(),
+          });
+
+      debugPrint('User added to group chat');
+    } catch (e) {
+      debugPrint('Error creating group chat: $e');
+      rethrow;
+    }
   }
 
   void _showMessage(String message) {
@@ -111,62 +349,6 @@ class _TapTabState extends State<TapTab> {
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
-      ),
-    );
-  }
-
-  void _showUserDataDialog(Map<String, dynamic> userData) {
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Crew Member Found'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              userData['display_name'] ?? 'No Name Set',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              userData['email'] ?? '',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[600],
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${userData['role']} • ${userData['company']}',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _stopNfcSession();
-            },
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: Implement connection request
-              Navigator.pop(context);
-              _stopNfcSession();
-            },
-            child: const Text('Connect'),
-          ),
-        ],
       ),
     );
   }
@@ -299,7 +481,12 @@ class _TapTabState extends State<TapTab> {
             ),
             const SizedBox(height: 32),
             TextButton(
-              onPressed: _stopNfcSession,
+              onPressed: () {
+                NfcManager.instance.stopSession();
+                setState(() {
+                  _isNfcSessionStarted = false;
+                });
+              },
               child: const Text(
                 'Turn Off NFC',
                 style: TextStyle(
