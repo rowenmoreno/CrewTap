@@ -11,7 +11,16 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:ui' as ui;
 
 class MyQRTab extends StatefulWidget {
-  const MyQRTab({super.key});
+  const MyQRTab({
+    super.key, 
+    required this.userId,
+    required this.displayName,
+    required this.position,
+  });
+
+  final String userId;
+  final String displayName;
+  final String position;
 
   @override
   State<MyQRTab> createState() => _MyQRTabState();
@@ -29,7 +38,7 @@ class _MyQRTabState extends State<MyQRTab> {
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    _generateQRData();
   }
 
   String _generateGroupName() {
@@ -38,45 +47,17 @@ class _MyQRTabState extends State<MyQRTab> {
     return List.generate(8, (index) => chars[random.nextInt(chars.length)]).join();
   }
 
-  Future<void> _loadUserData() async {
+  void _generateQRData() {
     try {
-      setState(() {
-        _isLoading = true;
-        _hasError = false;
-      });
-
-      // Get current user
-      final user = SupabaseService.client.auth.currentUser;
-      if (user == null) {
-        throw Exception('No user logged in');
-      }
-
-      // Get user profile
-      final profileResponse = await SupabaseService.client
-          .from('profiles')
-          .select()
-          .eq('id', user.id)
-          .single();
-
-      if (profileResponse == null) {
-        throw Exception('Profile not found');
-      }
-
-      // Generate random group name
       final groupName = _generateGroupName();
-
       setState(() {
-        _userData = user;
-        _userProfile = profileResponse;
         _groupName = groupName;
-        _qrData = 'crewlink://join/group/$groupName/${user.id}/${profileResponse['display_name']}/${profileResponse['position']}';
+        _qrData = 'crewlink://join/group/$groupName/${widget.userId}/${widget.displayName}/${widget.position}';
         _isLoading = false;
       });
     } catch (e) {
-      debugPrint('Error loading user data: $e');
+      debugPrint('Error generating QR data: $e');
       setState(() {
-        _hasError = true;
-        _errorMessage = e.toString();
         _isLoading = false;
       });
     }
@@ -172,7 +153,7 @@ class _MyQRTabState extends State<MyQRTab> {
                       ),
                       const SizedBox(height: 16),
                       ElevatedButton(
-                        onPressed: _loadUserData,
+                        onPressed: _generateQRData,
                         child: const Text('Retry'),
                       ),
                     ],
@@ -218,15 +199,17 @@ class _MyQRTabState extends State<MyQRTab> {
                       const SizedBox(height: 24),
                       Row(
                         children: [
-                               Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: _shareQRCode,
-                            icon: const Icon(Icons.share),
-                            label: const Text('Share QR'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: _shareQRCode,
+                              icon: const Icon(Icons.share),
+                              label: const Text('Share QR'),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
                             ),
-                      ))],
+                          ),
+                        ],
                       ),
                     ],
                   ),

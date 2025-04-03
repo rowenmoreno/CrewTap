@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'tabs/my_qr_tab.dart';
 import 'tabs/scan_tab.dart';
 import 'tabs/tap_tab.dart';
+import '../../services/supabase_service.dart';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key});
@@ -10,102 +11,119 @@ class ConnectScreen extends StatefulWidget {
   State<ConnectScreen> createState() => _ConnectScreenState();
 }
 
-class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-  bool _isScanTab = false;
+class _ConnectScreenState extends State<ConnectScreen> {
+  int _selectedIndex = 0;
+  bool _isLoading = true;
+  String? _errorMessage;
+  Map<String, dynamic>? _userProfile;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
-    _tabController.addListener(_handleTabChange);
+    _loadUserProfile();
   }
 
-  void _handleTabChange() {
-    final isScanTab = _tabController.index == 1;
-    if (isScanTab != _isScanTab) {
+  Future<void> _loadUserProfile() async {
+    try {
       setState(() {
-        _isScanTab = isScanTab;
+        _isLoading = true;
+      });
+
+      final user = SupabaseService.client.auth.currentUser;
+      if (user == null) {
+        throw Exception('No user logged in');
+      }
+
+      final profileResponse = await SupabaseService.client
+          .from('profiles')
+          .select()
+          .eq('id', user.id)
+          .single();
+
+      if (profileResponse == null) {
+        throw Exception('Profile not found');
+      }
+
+      setState(() {
+        _userProfile = profileResponse;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading user profile: $e');
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
       });
     }
   }
 
   @override
-  void dispose() {
-    _tabController.removeListener(_handleTabChange);
-    _tabController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const SizedBox(height: 16),
+              Text(
+                'Error: $_errorMessage',
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _loadUserProfile,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        bottom: TabBar(
-          controller: _tabController,
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.blue,
-          tabs: const [
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.qr_code),
-                  SizedBox(width: 8),
-                  Text('My QR'),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.qr_code_scanner),
-                  SizedBox(width: 8),
-                  Text('Scan'),
-                ],
-              ),
-            ),
-            Tab(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.tap_and_play),
-                  SizedBox(width: 8),
-                  Text('Tap'),
-                ],
-              ),
-            ),
-          ],
-        ),
-        title: Row(
-          children: [
-            // Image.asset(
-            //   'assets/images/logo.png',
-            //   height: 24,
-            // ),
-            // const SizedBox(width: 8),
-            const Text('Connect'),
-          ],
-        ),
-        actions: [
-          // CircleAvatar(
-          //   backgroundColor: Colors.grey[200],
-          //   child: const Text('JS'),
-          // ),
-          // const SizedBox(width: 16),
+      body: IndexedStack(
+        index: _selectedIndex,
+        children: [
+          MyQRTab(
+            userId: SupabaseService.client.auth.currentUser!.id,
+            displayName: _userProfile?['display_name'] ?? "Name",
+            position: _userProfile?['position'] ?? "Role",
+          ),
+          ScanTab(isActive: _selectedIndex == 1),
+          TapTab(),
         ],
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          const MyQRTab(),
-          ScanTab(isActive: _isScanTab),
-          const TapTab(),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.qr_code),
+            label: 'My QR',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.qr_code_scanner),
+            label: 'Scan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.tap_and_play),
+            label: 'Tap',
+          ),
         ],
       ),
     );
