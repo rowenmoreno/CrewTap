@@ -11,8 +11,8 @@ class ConnectScreen extends StatefulWidget {
   State<ConnectScreen> createState() => _ConnectScreenState();
 }
 
-class _ConnectScreenState extends State<ConnectScreen> {
-  int _selectedIndex = 0;
+class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProviderStateMixin {
+  late TabController _tabController;
   bool _isLoading = true;
   String? _errorMessage;
   Map<String, dynamic>? _userProfile;
@@ -20,7 +20,14 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 3, vsync: this);
     _loadUserProfile();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserProfile() async {
@@ -92,41 +99,30 @@ class _ConnectScreenState extends State<ConnectScreen> {
     }
 
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
+      appBar: AppBar(
+        title: const Text('Connect'),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(icon: Icon(Icons.qr_code), text: 'My QR'),
+            Tab(icon: Icon(Icons.qr_code_scanner), text: 'Scan'),
+            Tab(icon: Icon(Icons.tap_and_play), text: 'Tap'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
         children: [
           MyQRTab(
             userId: SupabaseService.client.auth.currentUser!.id,
             displayName: _userProfile?['display_name'] ?? "Name",
             position: _userProfile?['position'] ?? "Role",
           ),
-          ScanTab(isActive: _selectedIndex == 1),
+          ScanTab(isActive: _tabController.index == 1),
           TapTab(
             userId: SupabaseService.client.auth.currentUser!.id,
             displayName: _userProfile?['display_name'] ?? "Name",
             position: _userProfile?['position'] ?? "Role",
-          ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          setState(() {
-            _selectedIndex = index;
-          });
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code),
-            label: 'My QR',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.qr_code_scanner),
-            label: 'Scan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.tap_and_play),
-            label: 'Tap',
           ),
         ],
       ),
