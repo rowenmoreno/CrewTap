@@ -9,7 +9,7 @@
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<string>com.iSuporta.CrewLink</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -25,11 +25,23 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>We need camera access to scan QR codes</string>
+	<string>Camera access is required to scan QR codes for connecting with other users</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>We need photo library access to save and share QR codes</string>
+	<string>Photo library access is needed to save and share QR codes with other users</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save QR codes to your photo library</string>
 	<key>NFCReaderUsageDescription</key>
-	<string>We need NFC access to read and write connection tags</string>
+	<string>NFC access is required to read and write connection tags for quick user connections</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Location access helps improve connection accuracy when nearby</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Location access helps improve connection accuracy when nearby</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Microphone access may be needed for certain app features</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Contacts access allows you to easily find and connect with your contacts</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
@@ -55,5 +67,10 @@
 	<false/>
 	<key>FirebaseScreenReportingEnabled</key>
 	<true/>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<true/>
+	</dict>
 </dict>
 </plist>
