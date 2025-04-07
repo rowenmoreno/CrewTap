@@ -53,7 +53,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
       // Calculate expiry time based on selected duration
       final now = DateTime.now();
       final expiryTime = now.add(Duration(hours: durationHours));
-
+      print(currentUser.id);
       // Insert into chat table
       final chatResponse = await SupabaseService.client
           .from('chats')
