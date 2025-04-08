@@ -82,6 +82,14 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
             'joined_at': now.toIso8601String(),
           });
 
+      await SupabaseService.client
+          .from('chat_participants')
+          .insert({
+            'user_id': creatorId,
+            'chat_id': chatResponse['id'],
+            'joined_at': now.toIso8601String(),
+          });
+
       debugPrint('User added to group chat');
     } catch (e) {
       debugPrint('Error creating group chat: $e');
