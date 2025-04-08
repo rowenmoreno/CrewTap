@@ -83,7 +83,7 @@ class _TapTabState extends State<TapTab> {
             }
 
             final payload = String.fromCharCodes(record.payload);
-            if (!payload.startsWith('crewlink://join/group/')) {
+            if (!payload.startsWith('crewtap://join/group/')) {
               _showMessage('Invalid NDEF record format');
               return;
             }
@@ -407,7 +407,7 @@ class _TapTabState extends State<TapTab> {
             ),
             const SizedBox(height: 24),
             const Text(
-              'NFC active. Hold your phone near another\nCrewLink device to connect.',
+              'NFC active. Hold your phone near another\nCrewTap device to connect.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey,

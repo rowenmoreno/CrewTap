@@ -1,4 +1,4 @@
-# CrewLink
+# CrewTap
 
 A Flutter application for connecting with crew members using QR codes and NFC technology.
 

@@ -135,7 +135,7 @@ class _AuthScreenState extends State<AuthScreen> {
               children: [
                 const SizedBox(height: 48),
                 Text(
-                  'CrewLink',
+                  'CrewTap',
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                     color: Colors.blue,
                     fontWeight: FontWeight.bold,

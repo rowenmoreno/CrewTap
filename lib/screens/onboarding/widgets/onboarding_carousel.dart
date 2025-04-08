@@ -16,7 +16,7 @@ class OnboardingCarousel extends StatefulWidget {
 class _OnboardingCarouselState extends State<OnboardingCarousel> {
   final List<OnboardingSlide> _slides = [
     OnboardingSlide(
-      title: 'Welcome to CrewLink',
+      title: 'Welcome to CrewTap',
       description: 'Connect with your crew members and stay organized.',
       // image: 'assets/images/onboarding1.png',
     ),

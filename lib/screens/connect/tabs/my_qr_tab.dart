@@ -52,7 +52,7 @@ class _MyQRTabState extends State<MyQRTab> {
       final groupName = _generateGroupName();
       setState(() {
         _groupName = groupName;
-        _qrData = 'crewlink://join/group/$groupName/${widget.userId}/${widget.displayName}/${widget.position}';
+        _qrData = 'crewtap://join/group/$groupName/${widget.userId}/${widget.displayName}/${widget.position}';
         _isLoading = false;
       });
     } catch (e) {
@@ -82,7 +82,7 @@ class _MyQRTabState extends State<MyQRTab> {
         await file.writeAsBytes(byteData.buffer.asUint8List());
         await Share.shareXFiles(
           [XFile(file.path)],
-          text: 'Join my CrewLink group: $_groupName',
+          text: 'Join my CrewTap group: $_groupName',
         );
         await file.delete();
       }
@@ -115,7 +115,7 @@ class _MyQRTabState extends State<MyQRTab> {
         await file.writeAsBytes(byteData.buffer.asUint8List());
         await Share.shareXFiles(
           [XFile(file.path)],
-          text: 'Join my CrewLink group: $_groupName',
+          text: 'Join my CrewTap group: $_groupName',
         );
         await file.delete();
       }

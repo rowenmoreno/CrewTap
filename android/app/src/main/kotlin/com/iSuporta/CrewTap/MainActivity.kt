@@ -1,4 +1,4 @@
-package com.iSuporta.CrewLink
+package com.iSuporta.CrewTap
 
 import io.flutter.embedding.android.FlutterActivity
 

@@ -61,7 +61,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Padding(
               padding: const EdgeInsets.only(top: 24.0),
               child: Text(
-                'CrewLink',
+                'CrewTap',
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                   color: Colors.blue,
                   fontWeight: FontWeight.bold,

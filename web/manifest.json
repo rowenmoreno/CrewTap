@@ -1,6 +1,6 @@
 {
-    "name": "CrewLink",
-    "short_name": "CrewLink",
+    "name": "CrewTap",
+    "short_name": "CrewTap",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
