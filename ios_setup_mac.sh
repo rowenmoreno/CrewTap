@@ -36,7 +36,7 @@ fi
 
 # Check if Ruby is installed (required for CocoaPods)
 if ! command -v ruby &> /dev/null; then
-    echo -e "${RED}Ruby is not installed. This is unusual as macOS comes with Ruby pre-installed.${NC}"
+    echo -e "${RED}Ruby is not installed. Please install Ruby first.${NC}"
     echo -e "${YELLOW}You can install it using Homebrew: brew install ruby${NC}"
     exit 1
 fi
