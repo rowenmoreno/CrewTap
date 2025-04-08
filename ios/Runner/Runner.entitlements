@@ -6,6 +6,9 @@
 	<array>
 		<string>NDEF</string>
 		<string>TAG</string>
+		<string>PACE</string>
 	</array>
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist> 
