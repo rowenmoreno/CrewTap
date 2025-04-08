@@ -29,7 +29,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   // Dropdown values
   String _selectedPosition = 'Captain';
-  String _selectedAvailability = 'Available';
+  String _selectedAvailability = 'available';
 
   // Airlines data
   List<Map<String, dynamic>> _airlines = [];
@@ -46,12 +46,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     'Dispatcher'
   ];
 
-  final List<String> _availabilityOptions = [
-    'Available',
-    'Unavailable',
-    'On Duty',
-    'Off Duty'
-  ];
+  final Map<String, String> _availabilityOptions = {
+    'available' : 'Available',
+    'unavailable' : 'Unavailable',
+    'do_not_disturb' : 'Do Not Disturb',
+    'custom' : 'Custom'
+  };
 
   @override
   void initState() {
@@ -112,7 +112,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _shareEmployeeNumber = profile['share_employee_number'] ?? false;
           _shareLocation = profile['allow_location_sharing'] ?? false;
           _selectedPosition = profile['position'] ?? 'Captain';
-          _selectedAvailability = profile['availability_status'] ?? 'Available';
+          _selectedAvailability = profile['availability_status'] ?? 'available';
           _autoDeleteMessages = profile['auto_delete_messages'] ?? false;
           _enableNotifications = profile['notifications_enabled'] ?? false;
           _isLoading = false;
@@ -324,19 +324,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               DropdownButtonFormField<String>(
                 value: _selectedAvailability,
                 decoration: const InputDecoration(
-                  labelText: 'Availability',
+                  labelText: 'Select Availability',
                   border: OutlineInputBorder(),
                 ),
-                items: _availabilityOptions.map((String availability) {
+                items: _availabilityOptions.entries.map((MapEntry<String, String> entry) {
                   return DropdownMenuItem<String>(
-                    value: availability,
-                    child: Text(availability),
+                    value: entry.key,
+                    child: Text(entry.value),
                   );
                 }).toList(),
                 onChanged: (String? newValue) {
                   if (newValue != null) {
                     setState(() {
-                      _selectedAvailability = newValue;
+                      _selectedAvailability = newValue ?? 'available';
                     });
                   }
                 },

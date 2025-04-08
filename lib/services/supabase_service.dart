@@ -87,7 +87,7 @@ class SupabaseService {
     final response = await _client
         .from('airlines')
         .select('id, name')
-        .order('name');
+        .order('name', ascending: true);
     return List<Map<String, dynamic>>.from(response);
   }
 
