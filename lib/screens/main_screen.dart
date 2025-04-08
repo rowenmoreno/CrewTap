@@ -54,7 +54,7 @@ class _MainScreenState extends State<MainScreen> {
         });
 
         // Check if display name is "New User" and redirect to edit profile
-        if (profile['display_name'] == 'New User' && mounted) {
+        if ((profile['display_name'] == 'New User' || profile['display_name'] == '') && mounted) {
           // Use a small delay to ensure the widget is fully mounted
           Future.delayed(Duration.zero, () {
             Navigator.push(

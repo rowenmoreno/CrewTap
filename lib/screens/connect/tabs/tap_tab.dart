@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/supabase_service.dart';
+import '../../../services/nfc_service.dart';
 import 'dart:developer' as developer;
-import 'package:nfc_manager/nfc_manager.dart';
-import 'dart:convert';
-import 'dart:math';
 
 class TapTab extends StatefulWidget {
   const TapTab({
@@ -25,7 +23,6 @@ class TapTab extends StatefulWidget {
 class _TapTabState extends State<TapTab> {
   bool _isNfcAvailable = false;
   bool _isNfcSessionStarted = false;
-  bool _isWriting = false;
   bool _isPeerDetected = false;
 
   @override
@@ -37,13 +34,13 @@ class _TapTabState extends State<TapTab> {
   @override
   void dispose() {
     if (_isNfcSessionStarted) {
-      NfcManager.instance.stopSession();
+      NFCService.stopNFCSession();
     }
     super.dispose();
   }
 
   Future<void> _checkNfcAvailability() async {
-    bool isAvailable = await NfcManager.instance.isAvailable();
+    bool isAvailable = await NFCService.isNFCAvailable();
     setState(() {
       _isNfcAvailable = isAvailable;
     });
@@ -61,61 +58,38 @@ class _TapTabState extends State<TapTab> {
     });
 
     try {
-      await NfcManager.instance.startSession(
-        onDiscovered: (NfcTag tag) async {
-          try {
-            final ndef = Ndef.from(tag);
-            if (ndef == null) {
-              _showMessage('Tag is not NDEF formatted');
-              return;
-            }
+      final tagId = await NFCService.scanNFCTag();
+      if (tagId != null) {
+        // Parse the tag ID to extract group information
+        // The tag ID should be in the format: crewtap://join/group/{groupName}/{creatorId}/{creatorName}/{creatorRole}
+        final uri = Uri.parse(tagId);
+        if (uri.scheme == 'crewtap' && uri.host == 'join' && uri.pathSegments[0] == 'group') {
+          final groupName = uri.pathSegments[1];
+          final creatorId = uri.pathSegments[2];
+          final creatorName = uri.pathSegments.length > 3 ? uri.pathSegments[3] : 'Name';
+          final creatorRole = uri.pathSegments.length > 4 ? uri.pathSegments[4] : 'Role';
 
-            final message = await ndef.read();
-            if (message.records.isEmpty) {
-              _showMessage('No NDEF records found');
-              return;
-            }
+          debugPrint('Decoded NFC data - Group: $groupName, Creator: $creatorId, Name: $creatorName, Role: $creatorRole');
 
-            final record = message.records.first;
-            if (record.typeNameFormat != NdefTypeNameFormat.nfcWellknown) {
-              _showMessage('Invalid NDEF record format');
-              return;
-            }
-
-            final payload = String.fromCharCodes(record.payload);
-            if (!payload.startsWith('crewtap://join/group/')) {
-              _showMessage('Invalid NDEF record format');
-              return;
-            }
-
-            final uri = Uri.parse(payload);
-            final groupName = uri.pathSegments[1];
-            final creatorId = uri.pathSegments[2];
-            final creatorName = uri.pathSegments.length > 3 ? uri.pathSegments[3] : 'Name';
-            final creatorRole = uri.pathSegments.length > 4 ? uri.pathSegments[4] : 'Role';
-
-            debugPrint('Decoded NFC data - Group: $groupName, Creator: $creatorId, Name: $creatorName, Role: $creatorRole');
-
-            if (!mounted) return;
-            
-            // Show peer detection dialog
-            _showPeerDetectedDialog({
-              'group_name': groupName,
-              'creator_id': creatorId,
-              'creator_name': creatorName,
-              'role': creatorRole,
-            });
-          } catch (e) {
-            _showMessage('Error reading NFC tag: ${e.toString()}');
-          }
-        },
-        onError: (error) {
-          _showMessage('NFC Error: ${error.toString()}');
-          throw error;
-        },
-      );
+          if (!mounted) return;
+          
+          // Show peer detection dialog
+          _showPeerDetectedDialog({
+            'group_name': groupName,
+            'creator_id': creatorId,
+            'creator_name': creatorName,
+            'role': creatorRole,
+          });
+        } else {
+          _showMessage('Invalid NFC tag format');
+        }
+      }
     } catch (e) {
-      _showMessage('Failed to start NFC session: ${e.toString()}');
+      _showMessage('Error reading NFC tag: ${e.toString()}');
+    } finally {
+      setState(() {
+        _isNfcSessionStarted = false;
+      });
     }
   }
 
@@ -132,27 +106,17 @@ class _TapTabState extends State<TapTab> {
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text(
-            'Crew Member Detected',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Peer Detected'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Connect with ${peerData['creator_name']} (${peerData['role']})',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
-                ),
-              ),
-              const SizedBox(height: 24),
+              Text('Name: ${peerData['creator_name']}'),
+              Text('Role: ${peerData['role']}'),
+              const SizedBox(height: 16),
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -293,8 +257,8 @@ class _TapTabState extends State<TapTab> {
               child: const Text('Create Connection'),
             ),
           ],
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -418,7 +382,7 @@ class _TapTabState extends State<TapTab> {
             const SizedBox(height: 32),
             TextButton(
               onPressed: () {
-                NfcManager.instance.stopSession();
+                NFCService.stopNFCSession();
                 setState(() {
                   _isNfcSessionStarted = false;
                 });
