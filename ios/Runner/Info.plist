@@ -36,6 +36,8 @@
 	<array>
 		<string>NDEF</string>
 		<string>TAG</string>
+		<string>PACE</string>
+	</array>
 	</array>
 	<key>com.apple.developer.nfc.readersession.felica.systemcodes</key>
 	<array>

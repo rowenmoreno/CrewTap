@@ -74,6 +74,8 @@ if [ ! -f "Runner/Runner.entitlements" ]; then
     <array>
         <string>NDEF</string>
         <string>TAG</string>
+		<string>PACE</string>
+	</array>
     </array>
 </dict>
 </plist>
