@@ -77,6 +77,20 @@ class SupabaseService {
     return response;
   }
 
+  // Airlines operations
+  static Future<List<Map<String, dynamic>>> getAirlines() async {
+    final session = _client.auth.currentSession;
+    if (session == null) {
+      throw 'No active session';
+    }
+    
+    final response = await _client
+        .from('airlines')
+        .select('id, name')
+        .order('name');
+    return List<Map<String, dynamic>>.from(response);
+  }
+
   // Connection operations
   static Future<void> createConnection({
     required String userId,
