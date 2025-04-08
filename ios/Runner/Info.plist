@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Crew Link</string>
+	<string>CrewTap</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -28,36 +28,23 @@
 	<false/>
 	<key>FirebaseScreenReportingEnabled</key>
 	<true/>
-	<key>NSCameraUsageDescription</key>
-	<string>Camera access is required to scan QR codes for connecting with other users</string>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Photo library access is needed to save and share QR codes with other users</string>
-	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>We need permission to save QR codes to your photo library</string>
-	<key>NFCReaderUsageDescription</key>
-	<string>NFC access is required to read and write connection tags for quick user connections</string>
-	<key>com.apple.developer.nfc.readersession.formats</key>
-	<array>
-		<string>NDEF</string>
-		<string>TAG</string>
-	</array>
-	<key>com.apple.developer.nfc.readersession.felica.systemcodes</key>
-	<array>
-		<string>*</string>
-	</array>
-	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
-	<array>
-		<string>*</string>
-	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NFCReaderUsageDescription</key>
+	<string>NFC access is required to read and write connection tags for quick user connections</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to scan QR codes for connecting with other users</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>We need permission to save QR codes to your photo library</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is needed to save and share QR codes with other users</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -76,6 +63,19 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>com.apple.developer.nfc.readersession.felica.systemcodes</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>com.apple.developer.nfc.readersession.formats</key>
+	<array>
+		<string>NDEF</string>
+		<string>TAG</string>
+	</array>
+	<key>com.apple.developer.nfc.readersession.iso7816.select-identifiers</key>
+	<array>
+		<string>*</string>
 	</array>
 </dict>
 </plist>
