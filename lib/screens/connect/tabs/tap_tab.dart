@@ -202,7 +202,11 @@ class _TapTabState extends State<TapTab> {
             child: const Text('Decline'),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => _createGroupChat([{
+                      'userId': userInfo['userId'],
+                      'displayName': userInfo['displayName'],
+                      // 'position': _connectedDevice!.info.extraData['position'],
+                    }]),
             child: const Text('Accept'),
           ),
         ],
@@ -248,7 +252,6 @@ class _TapTabState extends State<TapTab> {
         'userId': widget.userId,
         'displayName': widget.displayName,
         'position': widget.position,
-        'role': _isIosBrowser ? 'browser' : 'advertiser',
       };
 
       // Start a new communication channel to send the user info
@@ -486,11 +489,9 @@ class _TapTabState extends State<TapTab> {
           ElevatedButton(
             onPressed: _isCreatingGroup
                 ? null
-                : () => _createGroupChat([{
-                      'userId': _connectedDevice!.info.id,
-                      'displayName': _connectedDevice!.info.displayName,
-                      // 'position': _connectedDevice!.info.extraData['position'],
-                    }]),
+                : () => _send(
+                NearbyMessageTextRequest.create(value: _getUserInfo()),
+              ),
             child: _isCreatingGroup
                 ? const CircularProgressIndicator()
                 : const Text('Create Group Chat'),
@@ -499,5 +500,19 @@ class _TapTabState extends State<TapTab> {
       );
     }
     return Container();
+  }
+  
+   Future<void> _send(NearbyMessageContent content) async {
+    if (_connectedDevice == null) return;
+    await _nearbyService.send(
+      OutgoingNearbyMessage(
+        content: content,
+        receiver: _connectedDevice!.info,
+      ),
+    );
+  }
+
+  String _getUserInfo() {
+    return 'userId:${widget.userId},displayName:${widget.displayName},position:${widget.position}';
   }
 } 
