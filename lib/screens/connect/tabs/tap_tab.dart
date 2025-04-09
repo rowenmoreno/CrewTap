@@ -144,22 +144,84 @@ class _TapTabState extends State<TapTab> {
   }
 
   void _messagesListener(ReceivedNearbyMessage<NearbyMessageContent> message) {
-    if (_connectedDevice == null) return;
-    // Very useful stuff! Process messages according to the type of content
-    message.content.byType(
+    
+
+      message.content.byType(
       onTextRequest: (request) {
-        // Handle text request
+        try {
+        final messageText = request.value;
+        developer.log('Received message: $messageText');
+
+        // Parse the user info from the message
+        final userInfo = <String, String>{};
+        final parts = messageText.split(',');
+        for (final part in parts) {
+          final keyValue = part.split(':');
+          if (keyValue.length == 2) {
+            userInfo[keyValue[0].trim()] = keyValue[1].trim();
+          }
+        }
+
+        if (userInfo.isNotEmpty) {
+          _showGroupChatDialog(userInfo);
+        }
+      } catch (e) {
+        developer.log('Error parsing message: $e');
+      }
       },
       onTextResponse: (response) {
-        // Handle text response
       },
       onFilesRequest: (request) {
-        // Handle files request
       },
       onFilesResponse: (response) {
-        // Handle files response
       },
     );
+  }
+
+  Future<void> _showGroupChatDialog(Map<String, String> userInfo) async {
+    if (!mounted) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Group Chat Invitation'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('User: ${userInfo['displayName']}'),
+            Text('Position: ${userInfo['position']}'),
+            Text('Role: ${userInfo['role']}'),
+            const SizedBox(height: 16),
+            const Text('Would you like to join this group chat?'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Decline'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Accept'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == true) {
+      // User accepted the invitation
+      if (userInfo['userId'] != null) {
+        final selectedPeers = [
+          {
+            'userId': userInfo['userId'],
+            'displayName': userInfo['displayName'],
+            'position': userInfo['position'],
+          }
+        ];
+        await _createGroupChat(selectedPeers);
+      }
+    }
   }
 
   Future<void> _disconnect() async {
@@ -180,6 +242,33 @@ class _TapTabState extends State<TapTab> {
     }
   }
 
+  Future<void> _sendUserInfoToPeer(NearbyDevice device) async {
+    try {
+      final userInfo = {
+        'userId': widget.userId,
+        'displayName': widget.displayName,
+        'position': widget.position,
+        'role': _isIosBrowser ? 'browser' : 'advertiser',
+      };
+
+      // Start a new communication channel to send the user info
+      _nearbyService.startCommunicationChannel(
+        NearbyCommunicationChannelData(
+          device.info.id,
+          messagesListener: NearbyServiceMessagesListener(
+            onData: _messagesListener,
+            onCreated: () {
+              developer.log('Communication channel created for sending user info: $userInfo');
+              // The message will be sent through the channel
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      developer.log('Error sending user info: $e');
+    }
+  }
+
   Future<void> _createGroupChat(List<Map<String, dynamic>> selectedPeers) async {
     if (_isCreatingGroup) return;
 
@@ -188,6 +277,11 @@ class _TapTabState extends State<TapTab> {
     });
 
     try {
+      // Send user info to the connected peer
+      if (_connectedDevice != null) {
+        await _sendUserInfoToPeer(_connectedDevice!);
+      }
+
       // Create a new chat
       final chatResponse = await _supabase.from('chats').insert({
         'type': 'group',
