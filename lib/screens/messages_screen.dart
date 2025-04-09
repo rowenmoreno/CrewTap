@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart'; // For date formatting
 import '../../services/supabase_service.dart';
 import 'dart:async'; // For Timer
+import 'message_details_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});
@@ -331,19 +332,19 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ),
             if (chat['expiry_time'] != null && !hasExpired)
                  Padding(
-                    padding: const EdgeInsets.only(left: 8.0), // Add some spacing
+                    padding: const EdgeInsets.only(left: 8.0),
                     child: Text(
                        remainingTime,
                        style: const TextStyle(
                           fontSize: 11,
-                          color: Colors.orange, // Or choose a suitable color
+                          color: Colors.orange,
                           fontWeight: FontWeight.w500
                         ),
                     ),
                  )
              else if (hasExpired)
                   Padding(
-                     padding: const EdgeInsets.only(left: 8.0), // Add some spacing
+                     padding: const EdgeInsets.only(left: 8.0),
                      child: Text(
                        'Expired',
                        style: TextStyle(
@@ -355,18 +356,32 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   )
          ],
       ),
-      onTap: () {
-        if (!hasExpired) {
-             // TODO: Navigate to the specific chat screen
-             debugPrint('Navigate to chat: ${chat['id']} ($chatName)');
-             // Navigator.push(context, MaterialPageRoute(builder: (context) => ChatDetailScreen(chatId: chat['id'])));
-        } else {
-             ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('This chat has expired.'))
-             );
+      onTap: hasExpired ? null : () {
+        // Get the recipient ID for private chats
+        String recipientId = '';
+        if (!isGroup) {
+          final participants = chat['participants'] as List<dynamic>?;
+          if (participants != null) {
+            final currentUserId = _supabase.auth.currentUser?.id;
+            recipientId = participants.firstWhere(
+              (p) => p['user_id'] != currentUserId,
+              orElse: () => {'user_id': ''},
+            )['user_id'];
+          }
         }
+        
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MessageDetailsScreen(
+              chatId: chat['id'],
+              recipientName: chatName,
+              recipientId: recipientId,
+            ),
+          ),
+        );
       },
-       tileColor: hasExpired ? Colors.grey[100] : null, // Optional: visual cue for expired chats
+      tileColor: hasExpired ? Colors.grey[100] : null,
     );
   }
 
