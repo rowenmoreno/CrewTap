@@ -43,7 +43,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
     });
   }
 
-  void _initializeMessagesScreen() {
+  void _initializeMessagesScreen({bool refresh = false}) {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
       setState(() {
@@ -63,7 +63,9 @@ class _MessagesScreenState extends State<MessagesScreen> {
     _chatsSubscription = chatsStream.listen((chatsData) async {
        if (!mounted) return;
       setState(() {
-        _isLoading = true; // Set loading true while processing new data
+        if(!refresh) {
+          _isLoading = true; // Set loading true while processing new data
+        }
       });
       try {
          final userChats = await _supabase
@@ -356,7 +358,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                   )
          ],
       ),
-      onTap: hasExpired ? null : () {
+      onTap: hasExpired ? null : () async {
         // Get the recipient ID for private chats
         String recipientId = '';
         if (!isGroup) {
@@ -370,7 +372,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           }
         }
         
-        Navigator.push(
+        final result = await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => MessageDetailsScreen(
@@ -380,6 +382,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
             ),
           ),
         );
+
+        // Refresh messages when returning from MessageDetailsScreen
+        if (result == true && mounted) {
+          _initializeMessagesScreen(refresh: true);
+        }
       },
       tileColor: hasExpired ? Colors.grey[100] : null,
     );
