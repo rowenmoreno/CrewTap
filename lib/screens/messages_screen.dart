@@ -292,14 +292,40 @@ class _MessagesScreenState extends State<MessagesScreen> {
     final lastMessageTime = _formatLastMessageTime(chat['last_message_time'] as String?);
     final remainingTime = _formatRemainingTime(chat['expiry_time'] as String?);
     final bool hasExpired = remainingTime == 'Expired';
+    final bool isUnread = chat['unread_count'] != null && chat['unread_count'] > 0;
 
     return ListTile(
-      leading: CircleAvatar(
-        backgroundColor: Colors.grey[300],
-        child: Icon(
-          isGroup ? Icons.group : Icons.person,
-          color: Colors.white,
-        ),
+      leading: Stack(
+        children: [
+          CircleAvatar(
+            backgroundColor: isGroup ? Colors.blue[100] : Colors.grey[300],
+            child: Icon(
+              isGroup ? Icons.group : Icons.person,
+              color: isGroup ? Colors.blue[900] : Colors.white,
+            ),
+          ),
+          if (isUnread)
+            Positioned(
+              right: 0,
+              top: 0,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Text(
+                  chat['unread_count'].toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
       title: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -308,8 +334,8 @@ class _MessagesScreenState extends State<MessagesScreen> {
             child: Text(
               chatName,
               style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  color: hasExpired ? Colors.grey : Colors.black87,
+                fontWeight: isUnread ? FontWeight.bold : FontWeight.w600,
+                color: hasExpired ? Colors.grey : Colors.black87,
               ),
               overflow: TextOverflow.ellipsis,
             ),
@@ -317,59 +343,67 @@ class _MessagesScreenState extends State<MessagesScreen> {
           if (lastMessageTime.isNotEmpty)
             Text(
               lastMessageTime,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(
+                fontSize: 12,
+                color: isUnread ? Colors.blue[900] : Colors.grey[600],
+                fontWeight: isUnread ? FontWeight.bold : FontWeight.normal,
+              ),
             ),
         ],
       ),
       subtitle: Row(
-         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-         children: [
-            Expanded(
-                child: Text(
-                    lastMessage,
-                    style: TextStyle(color: hasExpired ? Colors.grey : Colors.grey[700]),
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                ),
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Text(
+              lastMessage,
+              style: TextStyle(
+                color: hasExpired ? Colors.grey : (isUnread ? Colors.black87 : Colors.grey[700]),
+                fontWeight: isUnread ? FontWeight.w500 : FontWeight.normal,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            if (chat['expiry_time'] != null && !hasExpired)
-                 Padding(
-                    padding: const EdgeInsets.only(left: 8.0),
-                    child: Text(
-                       remainingTime,
-                       style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.orange,
-                          fontWeight: FontWeight.w500
-                        ),
-                    ),
-                 )
-             else if (hasExpired)
-                  Padding(
-                     padding: const EdgeInsets.only(left: 8.0),
-                     child: Text(
-                       'Expired',
-                       style: TextStyle(
-                          fontSize: 11,
-                          color: Colors.red[400],
-                          fontWeight: FontWeight.w500
-                        ),
-                     ),
-                  )
-         ],
+          ),
+          if (chat['expiry_time'] != null && !hasExpired)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Text(
+                remainingTime,
+                style: const TextStyle(
+                  fontSize: 11,
+                  color: Colors.orange,
+                  fontWeight: FontWeight.w500
+                ),
+              ),
+            )
+          else if (hasExpired)
+            Padding(
+              padding: const EdgeInsets.only(left: 8.0),
+              child: Text(
+                'Expired',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.red[400],
+                  fontWeight: FontWeight.w500
+                ),
+              ),
+            )
+        ],
       ),
       onTap: hasExpired ? null : () async {
         // Get the recipient ID for private chats
         String recipientId = '';
         if (!isGroup) {
-          final participants = chat['participants'] as List<dynamic>?;
-          if (participants != null) {
-            final currentUserId = _supabase.auth.currentUser?.id;
-            recipientId = participants.firstWhere(
-              (p) => p['user_id'] != currentUserId,
-              orElse: () => {'user_id': ''},
-            )['user_id'];
-          }
+          final participants = await _supabase
+              .from('chat_participants')
+              .select('user_id')
+              .eq('chat_id', chat['id']);
+          
+          final currentUserId = _supabase.auth.currentUser?.id;
+          recipientId = participants.firstWhere(
+            (p) => p['user_id'] != currentUserId,
+            orElse: () => {'user_id': ''},
+          )['user_id'];
         }
         
         final result = await Navigator.push(

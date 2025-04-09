@@ -28,6 +28,7 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   StreamSubscription<List<Map<String, dynamic>>>? _messagesSubscription;
+  Map<String, String> _senderNames = {};
 
   @override
   void initState() {
@@ -51,7 +52,23 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
           .stream(primaryKey: ['id'])
           .eq('chat_id', widget.chatId)
           .order('created_at', ascending: true)
-          .listen((messages) {
+          .listen((messages) async {
+        // Fetch sender names for all messages
+        for (var message in messages) {
+          if (!_senderNames.containsKey(message['sender_id'])) {
+            try {
+              final profile = await _supabase
+                  .from('profiles')
+                  .select('display_name')
+                  .eq('id', message['sender_id'])
+                  .single();
+              _senderNames[message['sender_id']] = profile['display_name'] ?? 'Unknown';
+            } catch (e) {
+              _senderNames[message['sender_id']] = 'Unknown';
+            }
+          }
+        }
+        
         setState(() {
           _messages = messages;
           _isLoading = false;
@@ -104,7 +121,6 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
   Widget build(BuildContext context) {
     return WillPopScope(
       onWillPop: () async {
-        // Return true to indicate changes were made
         Navigator.pop(context, true);
         return false;
       },
@@ -126,66 +142,65 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
                           itemCount: _messages.length,
                           itemBuilder: (context, index) {
                             final message = _messages[index];
-                            final isMe = message['sender_id'] ==
-                                _supabase.auth.currentUser?.id;
+                            final isMe = message['sender_id'] == _supabase.auth.currentUser?.id;
+                            final senderName = _senderNames[message['sender_id']] ?? 'Unknown';
+                            final time = DateFormat('HH:mm').format(
+                              DateTime.parse(message['created_at']),
+                            );
 
-                            return Align(
-                              alignment:
-                                  isMe ? Alignment.centerRight : Alignment.centerLeft,
-                              child: Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isMe
-                                      ? Theme.of(context).primaryColor
-                                      : Colors.grey[300],
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: isMe
-                                      ? CrossAxisAlignment.end
-                                      : CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      message['content'],
-                                      style: TextStyle(
-                                        color: isMe ? Colors.white : Colors.black,
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: Column(
+                                crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                children: [
+                                  if (!isMe)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 4, bottom: 4),
+                                      child: Text(
+                                        senderName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w500,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      DateFormat('HH:mm').format(
-                                        DateTime.parse(message['created_at']),
-                                      ),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: isMe
-                                            ? Colors.white70
-                                            : Colors.black54,
-                                      ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                    decoration: BoxDecoration(
+                                      color: isMe ? Colors.blue[900] : Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(16),
                                     ),
-                                  ],
-                                ),
+                                    child: Column(
+                                      crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          message['content'],
+                                          style: TextStyle(
+                                            color: isMe ? Colors.white : Colors.black,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          time,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isMe ? Colors.white70 : Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ),
                             );
                           },
                         ),
             ),
             Container(
-              padding: const EdgeInsets.all(8),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 3,
-                    offset: const Offset(0, -1),
-                  ),
-                ],
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
                 children: [
@@ -202,8 +217,8 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
                   ),
                   IconButton(
                     icon: const Icon(Icons.send),
+                    color: Colors.blue[300],
                     onPressed: _sendMessage,
-                    color: Theme.of(context).primaryColor,
                   ),
                 ],
               ),
