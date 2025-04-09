@@ -1,189 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
-import 'dart:async';
-import 'package:intl/intl.dart';
+import 'package:get/get.dart';
+import '../controllers/groups_controller.dart';
 import 'message_details_screen.dart';
 
-class GroupsScreen extends StatefulWidget {
+class GroupsScreen extends StatelessWidget {
   const GroupsScreen({super.key});
 
   @override
-  State<GroupsScreen> createState() => _GroupsScreenState();
-}
-
-class _GroupsScreenState extends State<GroupsScreen> {
-  bool _isLoading = true;
-  String? _errorMessage;
-  List<Map<String, dynamic>> _groups = [];
-  List<Map<String, dynamic>> _filteredGroups = [];
-  final _supabase = SupabaseService.client;
-  StreamSubscription<List<Map<String, dynamic>>>? _groupsSubscription;
-  final TextEditingController _searchController = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _initializeGroupsScreen();
-  }
-
-  @override
-  void dispose() {
-    _groupsSubscription?.cancel();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _filterGroups(String query) {
-    if (query.isEmpty) {
-      setState(() {
-        _filteredGroups = _groups;
-      });
-      return;
-    }
-
-    final lowercaseQuery = query.toLowerCase();
-    setState(() {
-      _filteredGroups = _groups.where((group) {
-        final groupName = (group['name'] ?? '').toString().toLowerCase();
-        return groupName.contains(lowercaseQuery);
-      }).toList();
-    });
-  }
-
-  void _initializeGroupsScreen({bool refresh = false}) {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = "User not logged in.";
-      });
-      return;
-    }
-
-    // Listen for real-time changes in group chats
-    final groupsStream = _supabase
-        .from('chats')
-        .stream(primaryKey: ['id'])
-        .eq('type', 'group')
-        .order('created_at', ascending: false);
-
-    _groupsSubscription = groupsStream.listen((groupsData) async {
-      if (!mounted) return;
-      setState(() {
-        if (!refresh) {
-          _isLoading = true;
-        }
-      });
-
-      try {
-        // Get user's group chats
-        final userGroups = await _supabase
-            .from('chat_participants')
-            .select('chat_id')
-            .eq('user_id', userId);
-
-        final groupIds = userGroups.map((g) => g['chat_id'] as String).toList();
-
-        if (groupIds.isEmpty) {
-          setState(() {
-            _groups = [];
-            _filteredGroups = [];
-            _isLoading = false;
-          });
-          return;
-        }
-
-        // Filter groupsData based on user participation
-        final filteredGroupsData = groupsData.where((group) => groupIds.contains(group['id'])).toList();
-
-        List<Map<String, dynamic>> updatedGroups = [];
-        for (var group in filteredGroupsData) {
-          // Get participant count
-          final participants = await _supabase
-              .from('chat_participants')
-              .select('user_id')
-              .eq('chat_id', group['id']);
-
-          group['member_count'] = participants.length;
-
-          // Get last message
-          final lastMessageResponse = await _supabase
-              .from('chat_messages')
-              .select('content, created_at')
-              .eq('chat_id', group['id'])
-              .order('created_at', ascending: false)
-              .limit(1)
-              .maybeSingle();
-
-          group['last_message'] = lastMessageResponse?['content'] ?? 'No messages yet';
-          group['last_message_time'] = lastMessageResponse?['created_at'];
-
-          updatedGroups.add(group);
-        }
-
-        // Filter out expired groups
-        final now = DateTime.now();
-        updatedGroups = updatedGroups.where((group) {
-          final expiryTimeStr = group['expiry_time'] as String?;
-          if (expiryTimeStr == null) return true; // Never expires
-          final expiryTime = DateTime.tryParse(expiryTimeStr);
-          return expiryTime != null && expiryTime.isAfter(now);
-        }).toList();
-
-        setState(() {
-          _groups = updatedGroups;
-          _filteredGroups = updatedGroups;
-          _isLoading = false;
-          _errorMessage = null;
-        });
-      } catch (e) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = "Failed to load groups: ${e.toString()}";
-        });
-      }
-    }, onError: (error) {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _errorMessage = "Error listening to groups: ${error.toString()}";
-        });
-      }
-    });
-  }
-
-  String _formatRemainingTime(String? expiryTimeString) {
-    if (expiryTimeString == null) {
-      return 'Never expires';
-    }
-    final expiryTime = DateTime.tryParse(expiryTimeString);
-    if (expiryTime == null) {
-      return 'Invalid date';
-    }
-
-    final now = DateTime.now();
-    final difference = expiryTime.difference(now);
-
-    if (difference.isNegative) {
-      return 'Expired';
-    }
-
-    final days = difference.inDays;
-    final hours = difference.inHours % 24;
-    final minutes = difference.inMinutes % 60;
-
-    if (days > 0) {
-      return '$days day${days > 1 ? 's' : ''} left';
-    } else if (hours > 0) {
-      return '$hours hr${hours > 1 ? 's' : ''} left';
-    } else {
-      return '$minutes min${minutes > 1 ? 's' : ''} left';
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
+    final controller = Get.put(GroupsController());
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Groups'),
@@ -203,7 +29,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
-              controller: _searchController,
+              onChanged: (value) => controller.searchQuery.value = value,
               decoration: InputDecoration(
                 hintText: 'Search groups',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -215,45 +41,53 @@ class _GroupsScreenState extends State<GroupsScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              onChanged: _filterGroups,
             ),
           ),
           Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _errorMessage != null
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            'Error: $_errorMessage',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.red[700]),
-                          ),
-                        ),
-                      )
-                    : _filteredGroups.isEmpty
-                        ? _buildEmptyState()
-                        : GridView.count(
-                            crossAxisCount: 2,
-                            padding: const EdgeInsets.all(16),
-                            mainAxisSpacing: 16,
-                            crossAxisSpacing: 16,
-                            childAspectRatio: 1.1,
-                            children: _filteredGroups.map((group) => _buildGroupCard(
-                              group['name'] ?? 'Group Chat',
-                              group['member_count'] ?? 0,
-                              _formatRemainingTime(group['expiry_time']),
-                            )).toList(),
-                          ),
+            child: Obx(() {
+              if (controller.isLoading.value) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              
+              if (controller.errorMessage.value.isNotEmpty) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Text(
+                      'Error: ${controller.errorMessage.value}',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.red[700]),
+                    ),
+                  ),
+                );
+              }
+              
+              if (controller.filteredGroups.isEmpty) {
+                return _buildEmptyState(controller);
+              }
+              
+              return GridView.count(
+                crossAxisCount: 2,
+                padding: const EdgeInsets.all(16),
+                mainAxisSpacing: 16,
+                crossAxisSpacing: 16,
+                childAspectRatio: 1.1,
+                children: controller.filteredGroups.map((group) => _buildGroupCard(
+                  group['name'] ?? 'Group Chat',
+                  group['member_count'] ?? 0,
+                  controller.formatRemainingTime(group['expiry_time']),
+                  group,
+                )).toList(),
+              );
+            }),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    if (_searchController.text.isNotEmpty) {
+  Widget _buildEmptyState(GroupsController controller) {
+    if (controller.searchQuery.value.isNotEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -265,7 +99,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              'No groups found for "${_searchController.text}"',
+              'No groups found for "${controller.searchQuery.value}"',
               style: TextStyle(
                 fontSize: 16,
                 color: Colors.grey[600],
@@ -318,32 +152,24 @@ class _GroupsScreenState extends State<GroupsScreen> {
     );
   }
 
-  Widget _buildGroupCard(String name, int members, String timeLeft) {
+  Widget _buildGroupCard(String name, int members, String timeLeft, Map<String, dynamic> group) {
     return GestureDetector(
       onTap: () {
-        // Find the group data that matches this card
-        final group = _groups.firstWhere(
-          (g) => g['name'] == name,
-          orElse: () => {},
-        );
-        
-        if (group.isNotEmpty) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => MessageDetailsScreen(
-                chatId: group['id'],
-                recipientName: name,
-                recipientId: '', // Empty for group chats
-              ),
+        Navigator.push(
+          Get.context!,
+          MaterialPageRoute(
+            builder: (context) => MessageDetailsScreen(
+              chatId: group['id'],
+              recipientName: name,
+              recipientId: '', // Empty for group chats
             ),
-          ).then((result) {
-            // Refresh the groups list when returning from chat
-            if (result == true) {
-              _initializeGroupsScreen(refresh: true);
-            }
-          });
-        }
+          ),
+        ).then((result) {
+          // Refresh the groups list when returning from chat
+          if (result == true) {
+            Get.find<GroupsController>().initializeGroups(refresh: true);
+          }
+        });
       },
       child: Container(
         decoration: BoxDecoration(
