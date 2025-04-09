@@ -16,8 +16,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _groups = [];
+  List<Map<String, dynamic>> _filteredGroups = [];
   final _supabase = SupabaseService.client;
   StreamSubscription<List<Map<String, dynamic>>>? _groupsSubscription;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -28,7 +30,25 @@ class _GroupsScreenState extends State<GroupsScreen> {
   @override
   void dispose() {
     _groupsSubscription?.cancel();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _filterGroups(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredGroups = _groups;
+      });
+      return;
+    }
+
+    final lowercaseQuery = query.toLowerCase();
+    setState(() {
+      _filteredGroups = _groups.where((group) {
+        final groupName = (group['name'] ?? '').toString().toLowerCase();
+        return groupName.contains(lowercaseQuery);
+      }).toList();
+    });
   }
 
   void _initializeGroupsScreen({bool refresh = false}) {
@@ -68,6 +88,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
         if (groupIds.isEmpty) {
           setState(() {
             _groups = [];
+            _filteredGroups = [];
             _isLoading = false;
           });
           return;
@@ -112,6 +133,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
 
         setState(() {
           _groups = updatedGroups;
+          _filteredGroups = updatedGroups;
           _isLoading = false;
           _errorMessage = null;
         });
@@ -180,29 +202,20 @@ class _GroupsScreenState extends State<GroupsScreen> {
         children: [
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Search groups',
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                  ),
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: 'Search groups',
+                prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                filled: true,
+                fillColor: Colors.grey[100],
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
                 ),
-                const SizedBox(width: 12),
-                IconButton(
-                  icon: const Icon(Icons.tune),
-                  onPressed: () {},
-                ),
-              ],
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              onChanged: _filterGroups,
             ),
           ),
           Expanded(
@@ -219,7 +232,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                           ),
                         ),
                       )
-                    : _groups.isEmpty
+                    : _filteredGroups.isEmpty
                         ? _buildEmptyState()
                         : GridView.count(
                             crossAxisCount: 2,
@@ -227,7 +240,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                             mainAxisSpacing: 16,
                             crossAxisSpacing: 16,
                             childAspectRatio: 1.1,
-                            children: _groups.map((group) => _buildGroupCard(
+                            children: _filteredGroups.map((group) => _buildGroupCard(
                               group['name'] ?? 'Group Chat',
                               group['member_count'] ?? 0,
                               _formatRemainingTime(group['expiry_time']),
@@ -240,6 +253,30 @@ class _GroupsScreenState extends State<GroupsScreen> {
   }
 
   Widget _buildEmptyState() {
+    if (_searchController.text.isNotEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.search_off,
+              size: 48,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'No groups found for "${_searchController.text}"',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

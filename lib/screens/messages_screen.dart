@@ -16,9 +16,11 @@ class _MessagesScreenState extends State<MessagesScreen> {
   bool _isLoading = true;
   String? _errorMessage;
   List<Map<String, dynamic>> _chats = [];
+  List<Map<String, dynamic>> _filteredChats = [];
   final _supabase = SupabaseService.client;
   StreamSubscription<List<Map<String, dynamic>>>? _chatsSubscription;
   Timer? _timer;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -31,6 +33,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
   void dispose() {
     _chatsSubscription?.cancel();
     _timer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -40,6 +43,23 @@ class _MessagesScreenState extends State<MessagesScreen> {
       if (mounted) {
         setState(() {}); // Trigger rebuild to update remaining time
       }
+    });
+  }
+
+  void _filterChats(String query) {
+    if (query.isEmpty) {
+      setState(() {
+        _filteredChats = _chats;
+      });
+      return;
+    }
+
+    final lowercaseQuery = query.toLowerCase();
+    setState(() {
+      _filteredChats = _chats.where((chat) {
+        final chatName = (chat['name'] ?? '').toString().toLowerCase();
+        return chatName.contains(lowercaseQuery);
+      }).toList();
     });
   }
 
@@ -78,6 +98,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
          if (chatIds.isEmpty) {
            setState(() {
                 _chats = [];
+                _filteredChats = [];
                 _isLoading = false;
             });
             return;
@@ -145,6 +166,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
         setState(() {
           _chats = updatedChats;
+          _filteredChats = updatedChats;
           _isLoading = false;
           _errorMessage = null;
         });
@@ -230,6 +252,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search messages',
                 prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -241,7 +264,7 @@ class _MessagesScreenState extends State<MessagesScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              // Add onChanged handler for search functionality later
+              onChanged: _filterChats,
             ),
           ),
           Expanded(
@@ -270,16 +293,39 @@ class _MessagesScreenState extends State<MessagesScreen> {
       );
     }
 
-    if (_chats.isEmpty) {
-      return _buildEmptyState(); // Use the existing empty state widget
+    if (_filteredChats.isEmpty) {
+      if (_searchController.text.isNotEmpty) {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.search_off,
+                size: 48,
+                color: Colors.grey[400],
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'No chats found for "${_searchController.text}"',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        );
+      }
+      return _buildEmptyState();
     }
 
     // Use ListView.separated for dividers
     return ListView.separated(
-      itemCount: _chats.length,
+      itemCount: _filteredChats.length,
       separatorBuilder: (context, index) => Divider(height: 1, indent: 72, color: Colors.grey[200]), // Add dividers
       itemBuilder: (context, index) {
-        final chat = _chats[index];
+        final chat = _filteredChats[index];
         return _buildChatListItem(chat);
       },
     );
