@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:nearby_service/nearby_service.dart';
 import '../../../services/supabase_service.dart';
-import '../../../services/nfc_service.dart';
 import 'dart:developer' as developer;
+import 'dart:io';
+import 'dart:async';
+
+enum AppState { idle, discovering, connected }
 
 class TapTab extends StatefulWidget {
   const TapTab({
@@ -21,457 +25,385 @@ class TapTab extends StatefulWidget {
 }
 
 class _TapTabState extends State<TapTab> {
-  bool _isNfcAvailable = false;
-  bool _isNfcSessionStarted = false;
-  bool _isPeerDetected = false;
+  bool _isNearbySessionStarted = false;
+  final _nearbyService = NearbyService.getInstance(
+    logLevel: NearbyServiceLogLevel.debug,
+  );
+  final _supabase = SupabaseService.client;
+  List<NearbyDevice> _discoveredPeers = [];
+  bool _isCreatingGroup = false;
+  bool _isIosBrowser = true; // For iOS, we'll be the browser by default
+  StreamSubscription? _peersSubscription;
+  CommunicationChannelState _communicationChannelState = CommunicationChannelState.notConnected;
+  NearbyDevice? _connectedDevice;
+  AppState _state = AppState.idle;
 
   @override
   void initState() {
     super.initState();
-    _checkNfcAvailability();
+    _initialize();
   }
 
   @override
   void dispose() {
-    if (_isNfcSessionStarted) {
-      NFCService.stopNFCSession();
+    _peersSubscription?.cancel();
+    if (_isNearbySessionStarted) {
+      _nearbyService.disconnectById('crew_link_group');
     }
     super.dispose();
   }
 
-  Future<void> _checkNfcAvailability() async {
-    bool isAvailable = await NFCService.isNFCAvailable();
-    setState(() {
-      _isNfcAvailable = isAvailable;
-    });
+  Future<void> _initialize() async {
+    await _nearbyService.initialize();
+    _startNearbySession();
   }
 
-  Future<void> _startNfcSession() async {
-    if (!_isNfcAvailable) {
-      _showMessage('NFC is not available on this device');
-      return;
-    }
-
-    setState(() {
-      _isNfcSessionStarted = true;
-      _isPeerDetected = false;
-    });
-
+  Future<void> _startNearbySession() async {
     try {
-      final tagId = await NFCService.scanNFCTag();
-      if (tagId != null) {
-        // Parse the tag ID to extract group information
-        // The tag ID should be in the format: crewtap://join/group/{groupName}/{creatorId}/{creatorName}/{creatorRole}
-        final uri = Uri.parse(tagId);
-        if (uri.scheme == 'crewtap' && uri.host == 'join' && uri.pathSegments[0] == 'group') {
-          final groupName = uri.pathSegments[1];
-          final creatorId = uri.pathSegments[2];
-          final creatorName = uri.pathSegments.length > 3 ? uri.pathSegments[3] : 'Name';
-          final creatorRole = uri.pathSegments.length > 4 ? uri.pathSegments[4] : 'Role';
-
-          debugPrint('Decoded NFC data - Group: $groupName, Creator: $creatorId, Name: $creatorName, Role: $creatorRole');
-
-          if (!mounted) return;
-          
-          // Show peer detection dialog
-          _showPeerDetectedDialog({
-            'group_name': groupName,
-            'creator_id': creatorId,
-            'creator_name': creatorName,
-            'role': creatorRole,
-          });
-        } else {
-          _showMessage('Invalid NFC tag format');
+      // Check platform-specific requirements
+      if (Platform.isIOS) {
+        _nearbyService.ios?.setIsBrowser(value: _isIosBrowser);
+      } else if (Platform.isAndroid) {
+        final isGranted = await _nearbyService.android?.requestPermissions();
+        final wifiEnabled = await _nearbyService.android?.checkWifiService();
+        if (!(isGranted ?? false) || !(wifiEnabled ?? false)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Permissions or WiFi not available')),
+          );
+          return;
         }
       }
-    } catch (e) {
-      _showMessage('Error reading NFC tag: ${e.toString()}');
-    } finally {
+
       setState(() {
-        _isNfcSessionStarted = false;
+        _isNearbySessionStarted = true;
+        _state = AppState.discovering;
       });
+
+      // Start discovery
+      final result = await _nearbyService.discover();
+      if (result) {
+        // Listen for peers
+        _peersSubscription = _nearbyService.getPeersStream().listen((peers) {
+          setState(() {
+            _discoveredPeers = peers;
+          });
+        });
+      }
+    } catch (e) {
+      developer.log('Error starting nearby session: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to start nearby session: $e')),
+      );
     }
   }
 
-  void _showPeerDetectedDialog(Map<String, dynamic> peerData) {
-    if (!mounted) return;
-    
-    final TextEditingController groupNameController = TextEditingController(
-      text: 'Connection with ${peerData['creator_name']}',
-    );
-    
-    // Duration state
-    String selectedDuration = '24 hours';
-    final List<String> durations = ['24 hours', '48 hours', '72 hours'];
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: const Text('Peer Detected'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Name: ${peerData['creator_name']}'),
-              Text('Role: ${peerData['role']}'),
-              const SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Group Name',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  TextField(
-                    controller: groupNameController,
-                    decoration: InputDecoration(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                        ),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(
-                          color: Colors.grey[300]!,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Duration',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 0,
-                    ),
-                    decoration: BoxDecoration(
-                      border: Border.all(
-                        color: Colors.grey[300]!,
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButton<String>(
-                      value: selectedDuration,
-                      isExpanded: true,
-                      underline: const SizedBox(),
-                      style: TextStyle(
-                        color: Colors.grey[700],
-                        fontSize: 14,
-                      ),
-                      items: durations.map((String duration) {
-                        return DropdownMenuItem<String>(
-                          value: duration,
-                          child: Text(duration),
-                        );
-                      }).toList(),
-                      onChanged: (String? newValue) {
-                        if (newValue != null) {
-                          setState(() {
-                            selectedDuration = newValue;
-                          });
-                        }
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
+  Future<void> _connect(NearbyDevice device) async {
+    try {
+      final result = await _nearbyService.connectById(device.info.id);
+      if (result || device.status.isConnected) {
+        // Start communication channel
+        _nearbyService.startCommunicationChannel(
+          NearbyCommunicationChannelData(
+            device.info.id,
+            filesListener: NearbyServiceFilesListener(
+              onData: (pack) {
+                // Handle received files if needed
+              },
+            ),
+            messagesListener: NearbyServiceMessagesListener(
+              onData: _messagesListener,
+              onCreated: () {
+                setState(() {
+                  _connectedDevice = device;
+                  _state = AppState.connected;
+                });
+              },
+              onError: (e, [StackTrace? s]) {
+                developer.log('Communication error: $e');
+                setState(() {
+                  _connectedDevice = null;
+                  _state = AppState.discovering;
+                });
+              },
+              onDone: () {
+                setState(() {
+                  _connectedDevice = null;
+                  _state = AppState.discovering;
+                });
+              },
+            ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                _startNfcSession();
-              },
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: Colors.grey[700],
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                try {
-                  // Convert duration string to hours
-                  final hours = int.parse(selectedDuration.split(' ')[0]);
-                  await _createGroupAndJoin(
-                    groupNameController.text,
-                    peerData['creator_id'],
-                    hours,
-                  );
-                  if (mounted) {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Successfully joined the group!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                } catch (e) {
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Error joining group: ${e.toString()}'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                  }
-                } finally {
-                  _startNfcSession();
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF0F172A),
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-              ),
-              child: const Text('Create Connection'),
-            ),
-          ],
         );
+      }
+    } catch (e) {
+      developer.log('Error connecting to peer: $e');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to connect: $e')),
+      );
+    }
+  }
+
+  void _messagesListener(ReceivedNearbyMessage<NearbyMessageContent> message) {
+    if (_connectedDevice == null) return;
+    // Very useful stuff! Process messages according to the type of content
+    message.content.byType(
+      onTextRequest: (request) {
+        // Handle text request
+      },
+      onTextResponse: (response) {
+        // Handle text response
+      },
+      onFilesRequest: (request) {
+        // Handle files request
+      },
+      onFilesResponse: (response) {
+        // Handle files response
       },
     );
   }
 
-  Future<void> _createGroupAndJoin(String groupName, String creatorId, int durationHours) async {
+  Future<void> _disconnect() async {
     try {
-      debugPrint('Creating group chat: $groupName with duration: $durationHours hours');
-      
-      // Get current user's ID
-      final currentUser = SupabaseService.client.auth.currentUser;
-      if (currentUser == null) {
-        throw Exception('User not authenticated');
+      if (_connectedDevice != null) {
+        await _nearbyService.disconnectById(_connectedDevice!.info.id);
       }
-
-      // Calculate expiry time based on selected duration
-      final now = DateTime.now();
-      final expiryTime = now.add(Duration(hours: durationHours));
-
-      // Insert into chat table
-      final chatResponse = await SupabaseService.client
-          .from('chats')
-          .insert({
-            'name': groupName,
-            'type': 'group',
-            'created_at': now.toIso8601String(),
-            'created_by': currentUser.id,
-            'expiry_time': expiryTime.toIso8601String(),
-          })
-          .select()
-          .single();
-
-      if (chatResponse == null) {
-        throw Exception('Failed to create group chat');
-      }
-
-      debugPrint('Group chat created: ${chatResponse['id']}');
-
-      // Add current user as participant
-      await SupabaseService.client
-          .from('chat_participants')
-          .insert({
-            'user_id': currentUser.id,
-            'chat_id': chatResponse['id'],
-            'joined_at': now.toIso8601String(),
-          });
-
-      debugPrint('User added to group chat');
+      await _nearbyService.endCommunicationChannel();
+      await _nearbyService.stopDiscovery();
+      await _peersSubscription?.cancel();
+      setState(() {
+        _connectedDevice = null;
+        _state = AppState.idle;
+        _discoveredPeers = [];
+      });
     } catch (e) {
-      debugPrint('Error creating group chat: $e');
-      rethrow;
+      developer.log('Error disconnecting: $e');
     }
   }
 
-  void _showMessage(String message) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red,
-      ),
-    );
+  Future<void> _createGroupChat(List<Map<String, dynamic>> selectedPeers) async {
+    if (_isCreatingGroup) return;
+
+    setState(() {
+      _isCreatingGroup = true;
+    });
+
+    try {
+      // Create a new chat
+      final chatResponse = await _supabase.from('chats').insert({
+        'type': 'group',
+        'name': 'Group Chat',
+        'created_by': widget.userId,
+      }).select().single();
+
+      final chatId = chatResponse['id'];
+
+      // Add all participants
+      final participants = [
+        {'user_id': widget.userId, 'chat_id': chatId},
+        ...selectedPeers.map((peer) => {
+          'user_id': peer['userId'],
+          'chat_id': chatId,
+        }),
+      ];
+
+      await _supabase.from('chat_participants').insert(participants);
+
+      // Stop nearby session
+      if (_isNearbySessionStarted) {
+        await _nearbyService.disconnectById('crew_link_group');
+        await _nearbyService.endCommunicationChannel();
+        await _nearbyService.stopDiscovery();
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group chat created successfully')),
+        );
+        Navigator.pop(context, true); // Return to previous screen with success
+      }
+    } catch (e) {
+      developer.log('Error creating group chat: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create group chat: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingGroup = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_isNfcAvailable) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.wifi_off,
-              size: 64,
-              color: Colors.grey,
-            ),
-            const SizedBox(height: 16),
+    if (_state == AppState.idle) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (Platform.isIOS) ...[
             const Text(
-              'NFC is not available on this device',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              'Select Your Role',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ],
-        ),
-      );
-    }
-
-    if (_isNfcSessionStarted) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
+            const SizedBox(height: 20),
             Container(
-              width: 160,
-              height: 160,
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.blue,
-                  width: 2,
-                ),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.nfc_rounded,
-                  size: 80,
-                  color: Colors.blue,
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'NFC active. Hold your phone near another\nCrewTap device to connect.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 32),
-            TextButton(
-              onPressed: () {
-                NFCService.stopNFCSession();
-                setState(() {
-                  _isNfcSessionStarted = false;
-                });
-              },
-              child: const Text(
-                'Turn Off NFC',
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
               ),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.touch_app,
-                    size: 64,
-                    color: Colors.blue,
+                  RadioListTile<bool>(
+                    title: const Text('Browser'),
+                    subtitle: const Text('Search for nearby devices'),
+                    value: true,
+                    groupValue: _isIosBrowser,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _isIosBrowser = value;
+                          _nearbyService.ios?.setIsBrowser(value: value);
+                        });
+                      }
+                    },
                   ),
-                  const SizedBox(height: 24),
-                  Text(
-                    widget.displayName,
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.position,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Tap your phone against another device\nto connect with crew.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey,
-                      height: 1.5,
-                    ),
+                  RadioListTile<bool>(
+                    title: const Text('Advertiser'),
+                    subtitle: const Text('Make yourself discoverable'),
+                    value: false,
+                    groupValue: _isIosBrowser,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setState(() {
+                          _isIosBrowser = value;
+                          _nearbyService.ios?.setIsBrowser(value: value);
+                        });
+                      }
+                    },
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: _startNfcSession,
-              icon: const Icon(Icons.nfc),
-              label: const Text('Start NFC Connection'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
+          ],
+          ElevatedButton(
+            onPressed: _startNearbySession,
+            style: ElevatedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+            ),
+            child: Text(Platform.isIOS 
+              ? 'Start ${_isIosBrowser ? 'Browsing' : 'Advertising'}'
+              : 'Start Discovery'),
+          ),
+        ],
+      );
+    } else if (_state == AppState.discovering) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          if (Platform.isIOS)
+            Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.blue[100],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    _isIosBrowser ? Icons.search : Icons.broadcast_on_personal,
+                    color: Colors.blue[900],
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'You are ${_isIosBrowser ? 'Browser' : 'Advertiser'}',
+                    style: TextStyle(
+                      color: Colors.blue[900],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
+          // const Text(
+          //   'Discovered Peers:',
+          //   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          // ),
+          // const SizedBox(height: 16),
+          Expanded(
+            child: _discoveredPeers.isEmpty
+                ? const Center(child: Text('Searching for peers...'))
+                : ListView.builder(
+                    itemCount: _discoveredPeers.length,
+                    itemBuilder: (context, index) {
+                      final peer = _discoveredPeers[index];
+                      return ListTile(
+                        leading: const CircleAvatar(
+                          child: Icon(Icons.person),
+                        ),
+                        title: Text(peer.info.displayName),
+                        // subtitle: Text(peer.info.extraData['position'] ?? ''),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.add),
+                          onPressed: () => _connect(peer),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (_discoveredPeers.length >= 2)
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: ElevatedButton(
+                onPressed: _isCreatingGroup
+                    ? null
+                    : () => _createGroupChat(_discoveredPeers.map((peer) => {
+                          'userId': peer.info.id,
+                          'displayName': peer.info.displayName,
+                          // 'position': peer.info.extraData['position'],
+                        }).toList()),
+                child: _isCreatingGroup
+                    ? const CircularProgressIndicator()
+                    : const Text('Create Group with All Peers'),
+              ),
+            ),
+        ],
+      );
+    } else if (_state == AppState.connected) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.person)),
+            title: Text(_connectedDevice!.info.displayName),
+            // subtitle: Text(_connectedDevice!.info.extraData['position'] ?? ''),
+            trailing: IconButton(
+              icon: const Icon(Icons.close),
+              onPressed: _disconnect,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: _isCreatingGroup
+                ? null
+                : () => _createGroupChat([{
+                      'userId': _connectedDevice!.info.id,
+                      'displayName': _connectedDevice!.info.displayName,
+                      // 'position': _connectedDevice!.info.extraData['position'],
+                    }]),
+            child: _isCreatingGroup
+                ? const CircularProgressIndicator()
+                : const Text('Create Group Chat'),
+          ),
+        ],
+      );
+    }
+    return Container();
   }
 } 
