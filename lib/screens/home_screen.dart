@@ -67,8 +67,12 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: [
           PopupMenuButton<String>(
             offset: const Offset(0, 40),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            
             child: Padding(
-              padding: const EdgeInsets.only(right: 16.0),
+              padding: const EdgeInsets.only(right: 16.0,left: 16),
               child: CircleAvatar(
                 backgroundColor: Colors.grey[200],
                 child: Text(_userInitials),
