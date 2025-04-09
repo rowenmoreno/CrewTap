@@ -126,11 +126,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
-          CircleAvatar(
-            backgroundColor: Colors.grey[200],
-            child: Text(_getInitials(displayName)),
-          ),
-          const SizedBox(width: 16),
         ],
       ),
       body: ListView(

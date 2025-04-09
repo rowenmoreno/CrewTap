@@ -1,7 +1,54 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
+import '../services/supabase_service.dart';
+import 'profile_screen.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  String _userInitials = '';
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      final user = SupabaseService.client.auth.currentUser;
+      if (user == null) return;
+
+      final profile = await SupabaseService.getProfile(user.id);
+      if (profile != null && mounted) {
+        final displayName = profile['display_name'] ?? 'User';
+        setState(() {
+          _userInitials = _getInitials(displayName);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  String _getInitials(String name) {
+    final parts = name.split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return name.substring(0, min(2, name.length)).toUpperCase();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,11 +65,53 @@ class HomeScreen extends StatelessWidget {
           ],
         ),
         actions: [
-          CircleAvatar(
-            backgroundColor: Colors.grey[200],
-            child: const Text('JS'),
+          PopupMenuButton<String>(
+            offset: const Offset(0, 40),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0),
+              child: CircleAvatar(
+                backgroundColor: Colors.grey[200],
+                child: Text(_userInitials),
+              ),
+            ),
+            onSelected: (value) async {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                ).then((_) => _loadUserProfile());
+              } else if (value == 'logout') {
+                await SupabaseService.client.auth.signOut();
+                if (mounted) {
+                  Navigator.of(context).pushReplacementNamed('/login');
+                }
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person_outline),
+                    SizedBox(width: 8),
+                    Text('View Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 16),
         ],
       ),
       body: ListView(
