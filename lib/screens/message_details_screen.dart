@@ -31,6 +31,7 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
   StreamSubscription<List<Map<String, dynamic>>>? _messagesSubscription;
   Map<String, String> _senderNames = {};
   bool _isGroupChat = false;
+  String _groupName = '';
 
   @override
   void initState() {
@@ -124,15 +125,66 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
     try {
       final chat = await _supabase
           .from('chats')
-          .select('type')
+          .select('type, name')
           .eq('id', widget.chatId)
           .single();
       
       setState(() {
         _isGroupChat = chat['type'] == 'group';
+        _groupName = chat['name'] ?? widget.recipientName;
       });
     } catch (e) {
       developer.log('Error checking chat type: $e');
+    }
+  }
+
+  Future<void> _renameGroup() async {
+    final TextEditingController nameController = TextEditingController(text: _groupName);
+    
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Group'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(
+            labelText: 'Group Name',
+            hintText: 'Enter new group name',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, nameController.text.trim()),
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty && mounted) {
+      try {
+        await _supabase
+            .from('chats')
+            .update({'name': result})
+            .eq('id', widget.chatId);
+        
+        setState(() {
+          _groupName = result;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group renamed successfully')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to rename group: ${e.toString()}')),
+        );
+      }
     }
   }
 
@@ -169,10 +221,14 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(widget.recipientName),
+          title: Text(_isGroupChat ? _groupName : widget.recipientName),
           elevation: 0,
           actions: [
-            if (_isGroupChat)
+            if (_isGroupChat) ...[
+              IconButton(
+                icon: const Icon(Icons.edit),
+                onPressed: _renameGroup,
+              ),
               IconButton(
                 icon: const Icon(Icons.exit_to_app),
                 onPressed: () {
@@ -201,6 +257,7 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
                   );
                 },
               ),
+            ],
           ],
         ),
         body: Column(
