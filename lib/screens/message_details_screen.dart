@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'dart:developer' as developer;
 import '../services/supabase_service.dart';
 
 class MessageDetailsScreen extends StatefulWidget {
@@ -29,11 +30,13 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
   String? _errorMessage;
   StreamSubscription<List<Map<String, dynamic>>>? _messagesSubscription;
   Map<String, String> _senderNames = {};
+  bool _isGroupChat = false;
 
   @override
   void initState() {
     super.initState();
     _initializeMessages();
+    _checkChatType();
   }
 
   @override
@@ -117,6 +120,46 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
     }
   }
 
+  Future<void> _checkChatType() async {
+    try {
+      final chat = await _supabase
+          .from('chats')
+          .select('type')
+          .eq('id', widget.chatId)
+          .single();
+      
+      setState(() {
+        _isGroupChat = chat['type'] == 'group';
+      });
+    } catch (e) {
+      developer.log('Error checking chat type: $e');
+    }
+  }
+
+  Future<void> _leaveGroup() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      // Remove user from chat participants
+      await _supabase
+          .from('chat_participants')
+          .delete()
+          .eq('chat_id', widget.chatId)
+          .eq('user_id', userId);
+
+      if (mounted) {
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to leave group: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -128,6 +171,37 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
         appBar: AppBar(
           title: Text(widget.recipientName),
           elevation: 0,
+          actions: [
+            if (_isGroupChat)
+              IconButton(
+                icon: const Icon(Icons.exit_to_app),
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: const Text('Leave Group'),
+                      content: const Text('Are you sure you want to leave this group?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cancel'),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _leaveGroup();
+                          },
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.red,
+                          ),
+                          child: const Text('Leave'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+          ],
         ),
         body: Column(
           children: [
