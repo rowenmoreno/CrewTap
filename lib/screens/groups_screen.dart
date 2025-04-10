@@ -3,9 +3,14 @@ import 'package:get/get.dart';
 import '../controllers/groups_controller.dart';
 import 'message_details_screen.dart';
 
-class GroupsScreen extends StatelessWidget {
+class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
 
+  @override
+  State<GroupsScreen> createState() => _GroupsScreenState();
+}
+
+class _GroupsScreenState extends State<GroupsScreen> {
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(GroupsController());
@@ -62,22 +67,65 @@ class GroupsScreen extends StatelessWidget {
                 );
               }
               
-              if (controller.filteredGroups.isEmpty) {
+              if (controller.filteredJoinedGroups.isEmpty && controller.filteredAvailableGroups.isEmpty) {
                 return _buildEmptyState(controller);
               }
               
-              return GridView.count(
-                crossAxisCount: 2,
+              return ListView(
                 padding: const EdgeInsets.all(16),
-                mainAxisSpacing: 16,
-                crossAxisSpacing: 16,
-                childAspectRatio: 1.1,
-                children: controller.filteredGroups.map((group) => _buildGroupCard(
-                  group['name'] ?? 'Group Chat',
-                  group['member_count'] ?? 0,
-                  controller.formatRemainingTime(group['expiry_time']),
-                  group,
-                )).toList(),
+                children: [
+                  if (controller.filteredJoinedGroups.isNotEmpty) ...[
+                    const Text(
+                      'Joined Groups',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: controller.filteredJoinedGroups.map((group) => _buildGroupCard(
+                        group['name'] ?? 'Group Chat',
+                        group['member_count'] ?? 0,
+                        controller.formatRemainingTime(group['expiry_time']),
+                        group,
+                        isJoined: true,
+                      )).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
+                  if (controller.filteredAvailableGroups.isNotEmpty) ...[
+                    const Text(
+                      'Available Groups',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      childAspectRatio: 1.1,
+                      children: controller.filteredAvailableGroups.map((group) => _buildGroupCard(
+                        group['name'] ?? 'Group Chat',
+                        group['member_count'] ?? 0,
+                        controller.formatRemainingTime(group['expiry_time']),
+                        group,
+                        isJoined: false,
+                      )).toList(),
+                    ),
+                  ],
+                ],
               );
             }),
           ),
@@ -87,30 +135,6 @@ class GroupsScreen extends StatelessWidget {
   }
 
   Widget _buildEmptyState(GroupsController controller) {
-    if (controller.searchQuery.value.isNotEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.search_off,
-              size: 48,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No groups found for "${controller.searchQuery.value}"',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-    
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -139,7 +163,7 @@ class GroupsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Scan a QR code or tap a device to\njoin a group',
+            'Scan a QR code or tap a device to get\nstarted',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -152,24 +176,58 @@ class GroupsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildGroupCard(String name, int members, String timeLeft, Map<String, dynamic> group) {
+  Widget _buildGroupCard(String name, int members, String timeLeft, Map<String, dynamic> group, {required bool isJoined}) {
     return GestureDetector(
       onTap: () {
-        Navigator.push(
-          Get.context!,
-          MaterialPageRoute(
-            builder: (context) => MessageDetailsScreen(
-              chatId: group['id'],
-              recipientName: name,
-              recipientId: '', // Empty for group chats
+        if (isJoined) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MessageDetailsScreen(
+                chatId: group['id'],
+                recipientName: name,
+                recipientId: '', // Empty for group chats
+              ),
             ),
-          ),
-        ).then((result) {
-          // Refresh the groups list when returning from chat
-          if (result == true) {
-            Get.find<GroupsController>().initializeGroups(refresh: true);
-          }
-        });
+          ).then((result) {
+            // Refresh the groups list when returning from chat
+            if (result == true) {
+              Get.find<GroupsController>().initializeGroups(refresh: true);
+            }
+          });
+        } else {
+          // Show join group dialog
+          showDialog(
+            context:context,
+            builder: (context) => AlertDialog(
+              title: const Text('Join Group'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Group: $name'),
+                  Text('Members: $members'),
+                  Text('Time left: $timeLeft'),
+                  const SizedBox(height: 16),
+                  const Text('Would you like to join this group?'),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Get.find<GroupsController>().joinGroup(group['id']);
+                  },
+                  child: const Text('Join'),
+                ),
+              ],
+            ),
+          );
+        }
       },
       child: Container(
         decoration: BoxDecoration(
@@ -229,21 +287,24 @@ class GroupsScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  'Join Group',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+              if (!isJoined) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.blue[50],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Join',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue[700],
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
+              ],
             ],
           ),
         ),

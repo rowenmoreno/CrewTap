@@ -10,8 +10,10 @@ class GroupsController extends GetxController {
   
   final RxBool isLoading = true.obs;
   final RxString errorMessage = ''.obs;
-  final RxList<Map<String, dynamic>> groups = <Map<String, dynamic>>[].obs;
-  final RxList<Map<String, dynamic>> filteredGroups = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> joinedGroups = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> availableGroups = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> filteredJoinedGroups = <Map<String, dynamic>>[].obs;
+  final RxList<Map<String, dynamic>> filteredAvailableGroups = <Map<String, dynamic>>[].obs;
   final RxString searchQuery = ''.obs;
 
   @override
@@ -29,15 +31,38 @@ class GroupsController extends GetxController {
 
   void _filterGroups(String query) {
     if (query.isEmpty) {
-      filteredGroups.value = groups;
+      filteredJoinedGroups.value = joinedGroups;
+      filteredAvailableGroups.value = availableGroups;
       return;
     }
 
     final lowercaseQuery = query.toLowerCase();
-    filteredGroups.value = groups.where((group) {
+    filteredJoinedGroups.value = joinedGroups.where((group) {
       final groupName = (group['name'] ?? '').toString().toLowerCase();
       return groupName.contains(lowercaseQuery);
     }).toList();
+
+    filteredAvailableGroups.value = availableGroups.where((group) {
+      final groupName = (group['name'] ?? '').toString().toLowerCase();
+      return groupName.contains(lowercaseQuery);
+    }).toList();
+  }
+
+  Future<void> joinGroup(String groupId) async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      await _supabase.from('chat_participants').insert({
+        'chat_id': groupId,
+        'user_id': userId,
+      });
+
+      // Refresh groups after joining
+      await initializeGroups(refresh: true);
+    } catch (e) {
+      errorMessage.value = "Failed to join group: ${e.toString()}";
+    }
   }
 
   Future<void> initializeGroups({bool refresh = false}) async {
@@ -59,14 +84,7 @@ class GroupsController extends GetxController {
           .select('chat_id')
           .eq('user_id', userId);
 
-      final groupIds = userGroups.map((g) => g['chat_id'] as String).toList();
-
-      if (groupIds.isEmpty) {
-        groups.value = [];
-        filteredGroups.value = [];
-        isLoading.value = false;
-        return;
-      }
+      final joinedGroupIds = userGroups.map((g) => g['chat_id'] as String).toList();
 
       // Listen for real-time changes in group chats
       final groupsStream = _supabase
@@ -77,11 +95,10 @@ class GroupsController extends GetxController {
 
       _groupsSubscription?.cancel();
       _groupsSubscription = groupsStream.listen((groupsData) async {
-        // Filter groupsData based on user participation
-        final filteredGroupsData = groupsData.where((group) => groupIds.contains(group['id'])).toList();
+        List<Map<String, dynamic>> updatedJoinedGroups = [];
+        List<Map<String, dynamic>> updatedAvailableGroups = [];
 
-        List<Map<String, dynamic>> updatedGroups = [];
-        for (var group in filteredGroupsData) {
+        for (var group in groupsData) {
           // Get participant count
           final participants = await _supabase
               .from('chat_participants')
@@ -91,30 +108,34 @@ class GroupsController extends GetxController {
           group['member_count'] = participants.length;
 
           // Get last message
-          final lastMessageResponse = await _supabase
-              .from('chat_messages')
-              .select('content, created_at')
-              .eq('chat_id', group['id'])
-              .order('created_at', ascending: false)
-              .limit(1)
-              .maybeSingle();
+          // final lastMessageResponse = await _supabase
+          //     .from('chat_messages')
+          //     .select('content, created_at')
+          //     .eq('chat_id', group['id'])
+          //     .order('created_at', ascending: false)
+          //     .limit(1)
+          //     .maybeSingle();
 
-          group['last_message'] = lastMessageResponse?['content'] ?? 'No messages yet';
-          group['last_message_time'] = lastMessageResponse?['created_at'];
+          // group['last_message'] = lastMessageResponse?['content'] ?? 'No messages yet';
+          // group['last_message_time'] = lastMessageResponse?['created_at'];
 
-          updatedGroups.add(group);
+          // Check if group is expired
+          final now = DateTime.now();
+          final expiryTimeStr = group['expiry_time'] as String?;
+          final expiryTime = expiryTimeStr != null ? DateTime.tryParse(expiryTimeStr) : null;
+          final isExpired = expiryTime != null && expiryTime.isBefore(now);
+
+          if (!isExpired) {
+            if (joinedGroupIds.contains(group['id'])) {
+              updatedJoinedGroups.add(group);
+            } else {
+              updatedAvailableGroups.add(group);
+            }
+          }
         }
 
-        // Filter out expired groups
-        final now = DateTime.now();
-        updatedGroups = updatedGroups.where((group) {
-          final expiryTimeStr = group['expiry_time'] as String?;
-          if (expiryTimeStr == null) return true; // Never expires
-          final expiryTime = DateTime.tryParse(expiryTimeStr);
-          return expiryTime != null && expiryTime.isAfter(now);
-        }).toList();
-
-        groups.value = updatedGroups;
+        joinedGroups.value = updatedJoinedGroups;
+        availableGroups.value = updatedAvailableGroups;
         _filterGroups(searchQuery.value);
         isLoading.value = false;
         errorMessage.value = '';
