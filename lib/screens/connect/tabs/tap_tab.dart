@@ -37,7 +37,7 @@ class _TapTabState extends State<TapTab> {
   CommunicationChannelState _communicationChannelState = CommunicationChannelState.notConnected;
   NearbyDevice? _connectedDevice;
   AppState _state = AppState.idle;
-
+  StreamSubscription? _connectedDeviceSubscription;
   @override
   void initState() {
     super.initState();
@@ -54,7 +54,9 @@ class _TapTabState extends State<TapTab> {
   }
 
   Future<void> _initialize() async {
-    await _nearbyService.initialize();
+    await _nearbyService.initialize(data: NearbyInitializeData(
+      iosDeviceName: widget.displayName,
+    ));
     _startNearbySession();
   }
 
@@ -100,8 +102,23 @@ class _TapTabState extends State<TapTab> {
   Future<void> _connect(NearbyDevice device) async {
     try {
       final result = await _nearbyService.connectById(device.info.id);
-      if (result || device.status.isConnected) {
+      if (result) {
         // Start communication channel
+        _connectedDeviceSubscription = _nearbyService.getConnectedDeviceStreamById(device.info.id).listen(
+          (event) async {
+            final wasConnected = _connectedDevice?.status.isConnected ?? false;
+            final nowConnected = event?.status.isConnected ?? false;
+            if (wasConnected && !nowConnected) {
+              // return to the discovery state
+              setState(() {
+                _state = AppState.discovering;
+              });
+            }
+            _connectedDevice = event;
+          },
+        );
+
+
         _nearbyService.startCommunicationChannel(
           NearbyCommunicationChannelData(
             device.info.id,
