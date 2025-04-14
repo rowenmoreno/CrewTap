@@ -65,6 +65,12 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.location_on),
+            onPressed: () {
+              Navigator.pushNamed(context, '/location');
+            },
+          ),
           PopupMenuButton<String>(
             offset: const Offset(0, 40),
             shape: RoundedRectangleBorder(

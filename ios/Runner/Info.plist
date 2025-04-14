@@ -40,7 +40,11 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Camera access is required to scan QR codes for connecting with other users</string>
+	<string>This app needs camera access to scan QR codes</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>This app needs location access to find the nearest airport</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>This app needs location access to find the nearest airport</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>We need permission to save QR codes to your photo library</string>
 	<key>NSPhotoLibraryUsageDescription</key>
@@ -54,8 +58,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>
@@ -85,5 +87,7 @@
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>CrewTap needs access to the local network to connect with other users</string>
+	<key>UIViewControllerBasedStatusBarAppearance</key>
+	<false/>
 </dict>
 </plist>

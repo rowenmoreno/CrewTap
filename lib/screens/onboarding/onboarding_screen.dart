@@ -68,7 +68,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               // Image.asset(
-              //   'assets/images/logo.png',
+              //   'a`1``ssets/images/logo.png',
               //   height: 40,
               // ),
             ),
