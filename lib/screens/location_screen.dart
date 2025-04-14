@@ -3,6 +3,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import '../services/api_helper.dart';
 import 'dart:math';
+import 'airport_passcode_screen.dart';
 
 class LocationScreen extends StatefulWidget {
   const LocationScreen({super.key});
@@ -18,6 +19,8 @@ class _LocationScreenState extends State<LocationScreen> {
   Map<String, dynamic>? _nearestAirport;
   bool _isLoadingAirport = false;
   String? _errorMessage;
+  String? _airportPasscode;
+  bool _isLoadingPasscode = false;
 
   @override
   void initState() {
@@ -101,10 +104,32 @@ class _LocationScreenState extends State<LocationScreen> {
         _nearestAirport = airports.first;
         _isLoadingAirport = false;
       });
+
+      // Fetch the passcode for the nearest airport
+      await _fetchAirportPasscode(_nearestAirport!['airport_code']);
     } catch (e) {
       setState(() {
         _isLoadingAirport = false;
         _errorMessage = e.toString();
+      });
+    }
+  }
+
+  Future<void> _fetchAirportPasscode(String airportCode) async {
+    setState(() {
+      _isLoadingPasscode = true;
+    });
+
+    try {
+      final passcode = await ApiHelper().getAirportPasscode(airportCode);
+      setState(() {
+        _airportPasscode = passcode;
+        _isLoadingPasscode = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingPasscode = false;
+        _errorMessage = 'Error fetching passcode: $e';
       });
     }
   }
@@ -234,13 +259,37 @@ class _LocationScreenState extends State<LocationScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 8),
-                                    Text(
-                                      _nearestAirport!['airport_code'] + '1234', // Example pass code
-                                      style: const TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 2,
+                                    if (_isLoadingPasscode)
+                                      const CircularProgressIndicator()
+                                    else if (_airportPasscode != null)
+                                      Text(
+                                        _airportPasscode!,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 2,
+                                        ),
+                                      )
+                                    else
+                                      const Text(
+                                        'No passcode set',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          color: Colors.grey,
+                                        ),
                                       ),
+                                    const SizedBox(height: 16),
+                                    ElevatedButton.icon(
+                                      onPressed: () async {
+                                        await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (context) => const AirportPasscodeScreen()),
+                                        );
+                                        
+                                        await _fetchAirportPasscode(_nearestAirport!['airport_code']);
+                                      },
+                                      icon: const Icon(Icons.vpn_key),
+                                      label: const Text('Manage Passcodes'),
                                     ),
                                   ],
                                 ),
@@ -249,16 +298,6 @@ class _LocationScreenState extends State<LocationScreen> {
                           ),
                         ),
                       ),
-                    const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {
-                        if (_currentPosition != null) {
-                          _findNearestAirport(_currentPosition!.latitude, _currentPosition!.longitude);
-                        }
-                      },
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Refresh Airport Info'),
-                    ),
                   ],
                 ),
               ),
