@@ -54,7 +54,7 @@ class ApiHelper {
       final response = await _client
           .from('airports')
           .select('airport_code, airport_name')
-          .order('airport_name');
+          .order('airport_name', ascending: true);
 
       return List<Map<String, dynamic>>.from(response);
     } on PostgrestException catch (e) {
