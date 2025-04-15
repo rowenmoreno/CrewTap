@@ -3,6 +3,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'dart:convert';
 import 'package:image_picker/image_picker.dart';
 import '../../../services/supabase_service.dart';
+import '../../message/message_details_screen.dart';
 
 class ScanTab extends StatefulWidget {
   const ScanTab({super.key});
@@ -124,6 +125,16 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
           continue;
         }
 
+        // Handle group join QR codes
+        if (uri.pathSegments[0] == 'join' && uri.pathSegments[1] == 'group') {
+          final chatId = uri.pathSegments[2];
+          final groupName = uri.pathSegments[3];
+          
+          await _joinGroup(chatId, groupName);
+          return;
+        }
+
+        // Handle crew connection QR codes
         final groupName = uri.pathSegments[1];
         final creatorId = uri.pathSegments[2];
         final creatorName = uri.pathSegments.length > 3 ? uri.pathSegments[3] : 'Name';
@@ -152,6 +163,90 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _joinGroup(String chatId, String groupName) async {
+    try {
+      final currentUser = SupabaseService.client.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Check if user is already in the group
+      final existingParticipant = await SupabaseService.client
+          .from('chat_participants')
+          .select()
+          .eq('chat_id', chatId)
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
+
+      if (existingParticipant != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('You are already a member of "$groupName"'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+          // Navigate to the existing group chat
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (context) => MessageDetailsScreen(
+                chatId: chatId,
+                recipientName: groupName,
+                recipientId: chatId, // Using chatId as recipientId for group chats
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      // Add user to chat participants
+      await SupabaseService.client
+          .from('chat_participants')
+          .insert({
+            'user_id': currentUser.id,
+            'chat_id': chatId,
+            'joined_at': DateTime.now().toIso8601String(),
+          });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Successfully joined the group "$groupName"!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        // Navigate to the newly joined group chat
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MessageDetailsScreen(
+              chatId: chatId,
+              recipientName: groupName,
+              recipientId: chatId, // Using chatId as recipientId for group chats
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error joining group: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error joining group: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _hasScanned = false;
+      });
+      cameraController.start();
     }
   }
 

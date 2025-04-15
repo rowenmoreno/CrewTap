@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:developer' as developer;
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../services/supabase_service.dart';
 
 class MessageDetailsScreen extends StatefulWidget {
@@ -264,6 +266,76 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
     }
   }
 
+  Future<void> _shareGroupQRCode() async {
+    if (!_isGroupChat) return;
+
+    final qrData = 'crewtap://join/group/${widget.chatId}/${_groupName}';
+
+    if (!mounted) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Share Group',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: QrImageView(
+                  data: qrData,
+                  version: QrVersions.auto,
+                  size: 200.0,
+                  backgroundColor: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Scan this QR code to join "$_groupName"',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close'),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await Share.share(
+                        'Join my group "$_groupName" on CrewTap!\n\nScan the QR code',
+                        subject: 'Join my CrewTap group',
+                      );
+                    },
+                    child: const Text('Share'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -277,6 +349,10 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
           elevation: 0,
           actions: [
             if (_isGroupChat) ...[
+              IconButton(
+                icon: const Icon(Icons.qr_code),
+                onPressed: _shareGroupQRCode,
+              ),
               IconButton(
                 icon: const Icon(Icons.person_add),
                 onPressed: _addMembers,
