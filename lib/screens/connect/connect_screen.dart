@@ -106,7 +106,7 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
           tabs: const [
             Tab(icon: Icon(Icons.qr_code), text: 'My QR'),
             Tab(icon: Icon(Icons.qr_code_scanner), text: 'Scan'),
-            Tab(icon: Icon(Icons.tap_and_play), text: 'Tap'),
+            // Tab(icon: Icon(Icons.tap_and_play), text: 'Tap'),
           ],
         ),
       ),
@@ -119,11 +119,11 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
             position: _userProfile?['position'] ?? "Role",
           ),
           const ScanTab(),
-          TapTab(
-            userId: SupabaseService.client.auth.currentUser!.id,
-            displayName: _userProfile?['display_name'] ?? "Name",
-            position: _userProfile?['position'] ?? "Role",
-          ),
+          // TapTab(
+          //   userId: SupabaseService.client.auth.currentUser!.id,
+          //   displayName: _userProfile?['display_name'] ?? "Name",
+          //   position: _userProfile?['position'] ?? "Role",
+          // ),
         ],
       ),
     );

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_screen.dart';
+import 'location_screen.dart';
 import 'connect/connect_screen.dart';
 import 'messages_screen.dart';
 import 'groups_screen.dart';
@@ -23,7 +23,7 @@ class _MainScreenState extends State<MainScreen> {
   static const List<Widget> _screens = [
     ProfileScreen(),
     MessagesScreen(),
-    HomeScreen(),
+    LocationScreen(),
     ConnectScreen(),
     GroupsScreen(),
   ];

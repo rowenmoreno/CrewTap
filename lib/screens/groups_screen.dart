@@ -100,31 +100,31 @@ class _GroupsScreenState extends State<GroupsScreen> {
                     ),
                     const SizedBox(height: 24),
                   ],
-                  if (controller.filteredAvailableGroups.isNotEmpty) ...[
-                    const Text(
-                      'Available Groups',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: 1.1,
-                      children: controller.filteredAvailableGroups.map((group) => _buildGroupCard(
-                        group['name'] ?? 'Group Chat',
-                        group['member_count'] ?? 0,
-                        controller.formatRemainingTime(group['expiry_time']),
-                        group,
-                        isJoined: false,
-                      )).toList(),
-                    ),
-                  ],
+                  // if (controller.filteredAvailableGroups.isNotEmpty) ...[
+                  //   const Text(
+                  //     'Available Groups',
+                  //     style: TextStyle(
+                  //       fontSize: 18,
+                  //       fontWeight: FontWeight.bold,
+                  //     ),
+                  //   ),
+                  //   const SizedBox(height: 16),
+                  //   GridView.count(
+                  //     shrinkWrap: true,
+                  //     physics: const NeverScrollableScrollPhysics(),
+                  //     crossAxisCount: 2,
+                  //     mainAxisSpacing: 16,
+                  //     crossAxisSpacing: 16,
+                  //     childAspectRatio: 1.1,
+                  //     children: controller.filteredAvailableGroups.map((group) => _buildGroupCard(
+                  //       group['name'] ?? 'Group Chat',
+                  //       group['member_count'] ?? 0,
+                  //       controller.formatRemainingTime(group['expiry_time']),
+                  //       group,
+                  //       isJoined: false,
+                  //     )).toList(),
+                  //   ),
+                  // ],
                 ],
               );
             }),

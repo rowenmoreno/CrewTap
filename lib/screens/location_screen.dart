@@ -5,135 +5,273 @@ import '../services/api_helper.dart';
 import 'dart:math';
 import 'airport_passcode_screen.dart';
 import 'crew_connect_screen.dart';
+import '../services/supabase_service.dart';
+import 'profile_screen.dart';
+import '../controllers/location_controller.dart';
 
-class LocationScreen extends StatefulWidget {
+class LocationScreen extends StatelessWidget {
   const LocationScreen({super.key});
 
   @override
-  State<LocationScreen> createState() => _LocationScreenState();
-}
-
-class _LocationScreenState extends State<LocationScreen> {
-  Position? _currentPosition;
-  String _locationMessage = 'Getting location...';
-  bool _isLoading = true;
-  Map<String, dynamic>? _nearestAirport;
-  bool _isLoadingAirport = false;
-  String? _errorMessage;
-  String? _airportPasscode;
-  bool _isLoadingPasscode = false;
-  bool _showPasscode = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _getCurrentLocation();
-  }
-
-  Future<void> _getCurrentLocation() async {
-    try {
-      bool serviceEnabled;
-      LocationPermission permission;
-
-      serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() {
-          _locationMessage = 'Location services are disabled. Please enable them in your device settings.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-        if (permission == LocationPermission.denied) {
-          setState(() {
-            _locationMessage = 'Location permissions are denied. Please enable them in your device settings.';
-            _isLoading = false;
-          });
-          return;
+  Widget build(BuildContext context) {
+    final controller = Get.put(LocationController());
+    
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home'),
+        actions: [
+          PopupMenuButton<String>(
+            offset: const Offset(0, 40),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 16.0, left: 16),
+              child: Obx(() => CircleAvatar(
+                backgroundColor: Colors.grey[200],
+                child: Text(controller.userInitials.value),
+              )),
+            ),
+            onSelected: (value) async {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfileScreen(),
+                  ),
+                ).then((_) => controller.loadUserProfile());
+              } else if (value == 'logout') {
+                await SupabaseService.client.auth.signOut();
+                if (context.mounted) {
+                  Navigator.of(context).pushReplacementNamed('/login');
+                }
+              }
+            },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person),
+                    SizedBox(width: 8),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout),
+                    SizedBox(width: 8),
+                    Text('Logout'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
         }
-      }
 
-      if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          _locationMessage = 'Location permissions are permanently denied. Please enable them in your device settings.';
-          _isLoading = false;
-        });
-        return;
-      }
-
-      Position position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: const Duration(seconds: 10),
-      ).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw Exception('Location request timed out. Please try again.');
-        },
-      );
-
-      setState(() {
-        _currentPosition = position;
-        _locationMessage = 'Location obtained successfully';
-        _isLoading = false;
-        _errorMessage = null;
-      });
-
-      await _findNearestAirport(position.latitude, position.longitude);
-    } catch (e) {
-      setState(() {
-        _locationMessage = 'Error getting location: $e';
-        _isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _findNearestAirport(double latitude, double longitude) async {
-    setState(() {
-      _isLoadingAirport = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final airports = await ApiHelper().findNearestAirport(latitude, longitude);
-      if (airports.isEmpty) {
-        throw Exception('No airports found');
-      }
-      
-      setState(() {
-        _nearestAirport = airports.first;
-        _isLoadingAirport = false;
-      });
-
-      // Fetch the passcode for the nearest airport
-      await _fetchAirportPasscode(_nearestAirport!['airport_code']);
-    } catch (e) {
-      setState(() {
-        _isLoadingAirport = false;
-        _errorMessage = e.toString();
-      });
-    }
-  }
-
-  Future<void> _fetchAirportPasscode(String airportCode) async {
-    setState(() {
-      _isLoadingPasscode = true;
-    });
-
-    try {
-      final passcode = await ApiHelper().getAirportPasscode(airportCode);
-      setState(() {
-        _airportPasscode = passcode;
-        _isLoadingPasscode = false;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoadingPasscode = false;
-        _errorMessage = 'Error fetching passcode: $e';
-      });
-    }
+        return SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Current Airport Section
+                Card(
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.airplanemode_active,
+                              size: 32,
+                              color: Colors.green,
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Current Airport',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                  if (controller.nearestAirport.value != null) ...[
+                                    Text(
+                                      controller.nearestAirport.value!['airport_name'],
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Text(
+                                      controller.nearestAirport.value!['airport_code'],
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        color: Colors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (controller.isLoadingPasscode.value)
+                          const Padding(
+                            padding: EdgeInsets.all(8.0),
+                            child: CircularProgressIndicator(),
+                          )
+                        else if (controller.airportPasscode?.value != null)
+                          Container(
+                            margin: const EdgeInsets.only(top: 16),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'Door Pass',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        controller.showPasscode.value
+                                            ? controller.airportPasscode!.value
+                                            : '••••••••',
+                                        style: const TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: Icon(
+                                        controller.showPasscode.value
+                                            ? Icons.visibility_off
+                                            : Icons.visibility,
+                                        color: Colors.blue,
+                                      ),
+                                      onPressed: controller.togglePasscodeVisibility,
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(
+                                        Icons.edit,
+                                        color: Colors.blue,
+                                      ),
+                                      onPressed: () {
+                                        if (controller.nearestAirport.value != null) {
+                                          Get.to(() => AirportPasscodeScreen(
+                                            initialAirportCode:
+                                                controller.nearestAirport.value!['airport_code'],
+                                          ));
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Quick Access Grid
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 16,
+                  children: [
+                    _buildQuickAccessCard(
+                      icon: Icons.door_front_door,
+                      title: 'Door Passes',
+                      subtitle: 'Access airport doors',
+                      color: Colors.blue,
+                      onTap: () async {
+                        await Get.to(() => const AirportPasscodeScreen());
+                        controller.fetchAirportPasscode(controller.nearestAirport.value!['airport_code']);
+                      },
+                    ),
+                    // _buildQuickAccessCard(
+                    //   icon: Icons.chat,
+                    //   title: 'Crew Chat',
+                    //   subtitle: 'Connect with crew',
+                    //   color: Colors.green,
+                    //   onTap: () {
+                    //     Get.to(() => const CrewConnectScreen());
+                    //   },
+                    // ),
+                    // _buildQuickAccessCard(
+                    //   icon: Icons.restaurant,
+                    //   title: 'Meal Discounts',
+                    //   subtitle: 'Find food deals',
+                    //   color: Colors.orange,
+                    //   onTap: () {
+                    //     // TODO: Implement meal discounts navigation
+                    //   },
+                    // ),
+                    // _buildQuickAccessCard(
+                    //   icon: Icons.hotel,
+                    //   title: 'Crew Hotels',
+                    //   subtitle: 'Book accommodations',
+                    //   color: Colors.purple,
+                    //   onTap: () {
+                    //     // TODO: Implement crew hotels navigation
+                    //   },
+                    // ),
+                    // _buildQuickAccessCard(
+                    //   icon: Icons.map,
+                    //   title: 'Terminal Map',
+                    //   subtitle: 'Navigate the airport',
+                    //   color: Colors.red,
+                    //   onTap: () {
+                    //     // TODO: Implement terminal map navigation
+                    //   },
+                    // ),
+                    // _buildQuickAccessCard(
+                    //   icon: Icons.emergency,
+                    //   title: 'Emergency Contacts',
+                    //   subtitle: 'Important numbers',
+                    //   color: Colors.red,
+                    //   onTap: () {
+                    //     // TODO: Implement emergency contacts navigation
+                    //   },
+                    // ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
+    );
   }
 
   Widget _buildQuickAccessCard({
@@ -175,211 +313,6 @@ class _LocationScreenState extends State<LocationScreen> {
           ),
         ),
       ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('CrewTap Dashboard'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Current Airport Section
-                    Card(
-                      elevation: 4,
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          children: [
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.airplanemode_active,
-                                  size: 32,
-                                  color: Colors.green,
-                                ),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Current Airport',
-                                        style: Theme.of(context).textTheme.titleMedium,
-                                      ),
-                                      if (_nearestAirport != null) ...[
-                                        Text(
-                                          _nearestAirport!['airport_name'],
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        Text(
-                                          _nearestAirport!['airport_code'],
-                                          style: const TextStyle(
-                                            fontSize: 16,
-                                            color: Colors.grey,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (_isLoadingPasscode)
-                              const Padding(
-                                padding: EdgeInsets.all(8.0),
-                                child: CircularProgressIndicator(),
-                              )
-                            else if (_airportPasscode != null)
-                              Container(
-                                margin: const EdgeInsets.only(top: 16),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: Colors.blue.shade50,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Door Pass',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _showPasscode ? _airportPasscode! : '••••••••',
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          icon: Icon(
-                                            _showPasscode ? Icons.visibility_off : Icons.visibility,
-                                            color: Colors.blue,
-                                          ),
-                                          onPressed: () {
-                                            setState(() {
-                                              _showPasscode = !_showPasscode;
-                                            });
-                                          },
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.edit,
-                                            color: Colors.blue,
-                                          ),
-                                          onPressed: () {
-                                            if (_nearestAirport != null) {
-                                              Get.to(() => AirportPasscodeScreen(
-                                                initialAirportCode: _nearestAirport!['airport_code'],
-                                              ));
-                                            }
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // Quick Access Section
-                    Text(
-                      'Quick Access',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      crossAxisCount: 2,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      children: [
-                        _buildQuickAccessCard(
-                          icon: Icons.vpn_key,
-                          title: 'Door Passes',
-                          subtitle: 'Access all airport door codes',
-                          color: Colors.blue,
-                          onTap: () => Get.to(() => const AirportPasscodeScreen()),
-                        ),
-                        _buildQuickAccessCard(
-                          icon: Icons.chat,
-                          title: 'Crew Chat',
-                          subtitle: 'Connect with your crew',
-                          color: Colors.green,
-                          onTap: () => Get.to(() => const CrewConnectScreen()),
-                        ),
-                        // _buildQuickAccessCard(
-                        //   icon: Icons.restaurant,
-                        //   title: 'Meal Discounts',
-                        //   subtitle: 'View crew meal deals',
-                        //   color: Colors.orange,
-                        //   onTap: () {
-                        //     // TODO: Navigate to meal discounts
-                        //   },
-                        // ),
-                        // _buildQuickAccessCard(
-                        //   icon: Icons.hotel,
-                        //   title: 'Crew Hotels',
-                        //   subtitle: 'Find crew accommodations',
-                        //   color: Colors.purple,
-                        //   onTap: () {
-                        //     // TODO: Navigate to crew hotels
-                        //   },
-                        // ),
-                        // _buildQuickAccessCard(
-                        //   icon: Icons.map,
-                        //   title: 'Terminal Map',
-                        //   subtitle: 'Navigate the airport',
-                        //   color: Colors.red,
-                        //   onTap: () {
-                        //     // TODO: Navigate to terminal map
-                        //   },
-                        // ),
-                        // _buildQuickAccessCard(
-                        //   icon: Icons.emergency,
-                        //   title: 'Emergency',
-                        //   subtitle: 'Important contacts',
-                        //   color: Colors.red,
-                        //   onTap: () {
-                        //     // TODO: Navigate to emergency contacts
-                        //   },
-                        // ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
     );
   }
 

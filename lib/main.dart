@@ -34,8 +34,11 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
-      ),
-      home: const QRScannerScreen(),
+      ),      initialRoute: '/',
+      routes: {
+        '/': (context) => const AuthWrapper(),
+        '/home': (context) => const MainScreen(),
+      },
     );
   }
 }
@@ -55,6 +58,7 @@ class AuthWrapper extends StatelessWidget {
         // If there's no session, show the onboarding screen
         return const OnboardingScreen();
       },
+    
     );
   }
 }
