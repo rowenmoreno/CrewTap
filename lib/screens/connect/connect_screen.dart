@@ -20,7 +20,7 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 2, vsync: this);
     _loadUserProfile();
   }
 
