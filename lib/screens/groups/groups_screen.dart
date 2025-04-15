@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../controllers/groups_controller.dart';
-import 'message_details_screen.dart';
+import 'controller/groups_controller.dart';
+import '../message/message_details_screen.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});

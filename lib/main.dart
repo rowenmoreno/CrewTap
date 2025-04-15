@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'screens/qr_scanner_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
-import 'screens/location_screen.dart';
+import 'screens/dashboard/dashboard_screen.dart';
 import 'config/supabase_config.dart';
 
 void main() async {

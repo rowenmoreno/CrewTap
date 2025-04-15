@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../services/supabase_service.dart';
+import '../../services/supabase_service.dart';
 import 'dart:developer' as developer;
 import 'edit_profile_screen.dart';
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'location_screen.dart';
+import 'dashboard/dashboard_screen.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -66,7 +66,7 @@ class _QRScannerScreenState extends State<QRScannerScreen> {
                 Navigator.of(context).pop();
                 Navigator.pushReplacement(
                   context,
-                  MaterialPageRoute(builder: (context) => const LocationScreen()),
+                  MaterialPageRoute(builder: (context) => const DashboardScreen()),
                 );
               },
               child: const Text('Continue'),

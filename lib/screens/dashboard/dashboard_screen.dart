@@ -1,20 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import '../services/api_helper.dart';
+import '../../services/api_helper.dart';
 import 'dart:math';
-import 'airport_passcode_screen.dart';
-import 'crew_connect_screen.dart';
-import '../services/supabase_service.dart';
-import 'profile_screen.dart';
-import '../controllers/location_controller.dart';
-
-class LocationScreen extends StatelessWidget {
-  const LocationScreen({super.key});
+import '../../services/supabase_service.dart';
+import '../crew_connect_screen.dart';
+import '../passcode/airport_passcode_screen.dart';
+import '../profile/profile_screen.dart';
+import 'controller/dashboard_controller.dart';
+class DashboardScreen extends StatelessWidget {
+  const DashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.put(LocationController());
+    final controller = Get.put(DashboardController());
     
     return Scaffold(
       appBar: AppBar(

@@ -1,6 +1,6 @@
 import 'package:get/get.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../services/supabase_service.dart';
+import '../../../services/supabase_service.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 

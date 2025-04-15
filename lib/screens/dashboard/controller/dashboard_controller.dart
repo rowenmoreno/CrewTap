@@ -1,9 +1,9 @@
 import 'package:get/get.dart';
 import 'package:geolocator/geolocator.dart';
-import '../services/api_helper.dart';
-import '../services/supabase_service.dart';
+import '../../../services/api_helper.dart';
+import '../../../services/supabase_service.dart';
 
-class LocationController extends GetxController {
+class DashboardController extends GetxController {
   final Rx<Position?> currentPosition = Rx<Position?>(null);
   final RxString locationMessage = 'Getting location...'.obs;
   final RxBool isLoading = true.obs;
