@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'location_screen.dart';
+import 'dashboard/dashboard_screen.dart';
 import 'connect/connect_screen.dart';
-import 'messages_screen.dart';
-import 'groups_screen.dart';
-import 'profile_screen.dart';
-import 'edit_profile_screen.dart';
+import 'message/messages_screen.dart';
+import 'groups/groups_screen.dart';
+import 'profile/profile_screen.dart';
+import 'profile/edit_profile_screen.dart';
 import '../services/supabase_service.dart';
 
 class MainScreen extends StatefulWidget {
@@ -23,7 +23,7 @@ class _MainScreenState extends State<MainScreen> {
   static const List<Widget> _screens = [
     ProfileScreen(),
     MessagesScreen(),
-    LocationScreen(),
+    DashboardScreen(),
     ConnectScreen(),
     GroupsScreen(),
   ];
