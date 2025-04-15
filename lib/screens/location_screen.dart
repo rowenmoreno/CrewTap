@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../services/api_helper.dart';
 import 'dart:math';
 import 'airport_passcode_screen.dart';
+import 'crew_connect_screen.dart';
 
 class LocationScreen extends StatefulWidget {
   const LocationScreen({super.key});
@@ -21,6 +22,7 @@ class _LocationScreenState extends State<LocationScreen> {
   String? _errorMessage;
   String? _airportPasscode;
   bool _isLoadingPasscode = false;
+  bool _showPasscode = false;
 
   @override
   void initState() {
@@ -134,11 +136,53 @@ class _LocationScreenState extends State<LocationScreen> {
     }
   }
 
+  Widget _buildQuickAccessCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 2,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, size: 32, color: color),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Airport Location'),
+        title: const Text('CrewTap Dashboard'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body: _isLoading
@@ -149,155 +193,189 @@ class _LocationScreenState extends State<LocationScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    // Current Airport Section
                     Card(
                       elevation: 4,
                       child: Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: Column(
                           children: [
-                            const Icon(
-                              Icons.location_on,
-                              size: 48,
-                              color: Colors.blue,
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.airplanemode_active,
+                                  size: 32,
+                                  color: Colors.green,
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Current Airport',
+                                        style: Theme.of(context).textTheme.titleMedium,
+                                      ),
+                                      if (_nearestAirport != null) ...[
+                                        Text(
+                                          _nearestAirport!['airport_name'],
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          _nearestAirport!['airport_code'],
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Your Current Location',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            if (_currentPosition != null) ...[
-                              Text(
-                                'Latitude: ${_currentPosition!.latitude.toStringAsFixed(6)}',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                              Text(
-                                'Longitude: ${_currentPosition!.longitude.toStringAsFixed(6)}',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                              Text(
-                                'Accuracy: ${_currentPosition!.accuracy.toStringAsFixed(2)} meters',
-                                style: Theme.of(context).textTheme.bodyLarge,
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    if (_errorMessage != null)
-                      Card(
-                        color: Colors.red.shade100,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: Colors.red),
-                            textAlign: TextAlign.center,
-                          ),
-                        ),
-                      ),
-                    const SizedBox(height: 16),
-                    if (_isLoadingAirport)
-                      const Center(child: CircularProgressIndicator())
-                    else if (_nearestAirport != null)
-                      Card(
-                        elevation: 4,
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            children: [
-                              const Icon(
-                                Icons.airplanemode_active,
-                                size: 48,
-                                color: Colors.green,
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                'Current Airport',
-                                style: Theme.of(context).textTheme.titleLarge,
-                              ),
-                              const SizedBox(height: 16),
-                              ListTile(
-                                leading: const Icon(Icons.airport_shuttle),
-                                title: const Text('Airport Name'),
-                                subtitle: Text(
-                                  _nearestAirport!['airport_name'],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.code),
-                                title: const Text('Airport Code'),
-                                subtitle: Text(
-                                  _nearestAirport!['airport_code'],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                              ListTile(
-                                leading: const Icon(Icons.directions),
-                                title: const Text('Distance'),
-                                subtitle: Text(
-                                  '${_nearestAirport!['distance_km'].toStringAsFixed(2)} km',
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                              const SizedBox(height: 16),
+                            if (_isLoadingPasscode)
+                              const Padding(
+                                padding: EdgeInsets.all(8.0),
+                                child: CircularProgressIndicator(),
+                              )
+                            else if (_airportPasscode != null)
                               Container(
-                                padding: const EdgeInsets.all(16),
+                                margin: const EdgeInsets.only(top: 16),
+                                padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: Colors.blue.shade50,
                                   borderRadius: BorderRadius.circular(8),
                                 ),
-                                child: Column(
+                                child: Row(
                                   children: [
-                                    const Text(
-                                      'Airport Pass Code',
-                                      style: TextStyle(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text(
+                                            'Door Pass',
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _showPasscode ? _airportPasscode! : '••••••••',
+                                            style: const TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
-                                    if (_isLoadingPasscode)
-                                      const CircularProgressIndicator()
-                                    else if (_airportPasscode != null)
-                                      Text(
-                                        _airportPasscode!,
-                                        style: const TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 2,
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: Icon(
+                                            _showPasscode ? Icons.visibility_off : Icons.visibility,
+                                            color: Colors.blue,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              _showPasscode = !_showPasscode;
+                                            });
+                                          },
                                         ),
-                                      )
-                                    else
-                                      const Text(
-                                        'No passcode set',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          color: Colors.grey,
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: Colors.blue,
+                                          ),
+                                          onPressed: () {
+                                            if (_nearestAirport != null) {
+                                              Get.to(() => AirportPasscodeScreen(
+                                                initialAirportCode: _nearestAirport!['airport_code'],
+                                              ));
+                                            }
+                                          },
                                         ),
-                                      ),
-                                    const SizedBox(height: 16),
-                                    ElevatedButton.icon(
-                                      onPressed: () async {
-                                        await Navigator.push(
-                                          context,
-                                          MaterialPageRoute(builder: (context) => const AirportPasscodeScreen()),
-                                        );
-                                        
-                                        await _fetchAirportPasscode(_nearestAirport!['airport_code']);
-                                      },
-                                      icon: const Icon(Icons.vpn_key),
-                                      label: const Text('Manage Passcodes'),
+                                      ],
                                     ),
                                   ],
                                 ),
                               ),
-                            ],
-                          ),
+                          ],
                         ),
                       ),
+                    ),
+                    const SizedBox(height: 24),
+                    
+                    // Quick Access Section
+                    Text(
+                      'Quick Access',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 16),
+                    GridView.count(
+                      crossAxisCount: 2,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      mainAxisSpacing: 16,
+                      crossAxisSpacing: 16,
+                      children: [
+                        _buildQuickAccessCard(
+                          icon: Icons.vpn_key,
+                          title: 'Door Passes',
+                          subtitle: 'Access all airport door codes',
+                          color: Colors.blue,
+                          onTap: () => Get.to(() => const AirportPasscodeScreen()),
+                        ),
+                        _buildQuickAccessCard(
+                          icon: Icons.chat,
+                          title: 'Crew Chat',
+                          subtitle: 'Connect with your crew',
+                          color: Colors.green,
+                          onTap: () => Get.to(() => const CrewConnectScreen()),
+                        ),
+                        // _buildQuickAccessCard(
+                        //   icon: Icons.restaurant,
+                        //   title: 'Meal Discounts',
+                        //   subtitle: 'View crew meal deals',
+                        //   color: Colors.orange,
+                        //   onTap: () {
+                        //     // TODO: Navigate to meal discounts
+                        //   },
+                        // ),
+                        // _buildQuickAccessCard(
+                        //   icon: Icons.hotel,
+                        //   title: 'Crew Hotels',
+                        //   subtitle: 'Find crew accommodations',
+                        //   color: Colors.purple,
+                        //   onTap: () {
+                        //     // TODO: Navigate to crew hotels
+                        //   },
+                        // ),
+                        // _buildQuickAccessCard(
+                        //   icon: Icons.map,
+                        //   title: 'Terminal Map',
+                        //   subtitle: 'Navigate the airport',
+                        //   color: Colors.red,
+                        //   onTap: () {
+                        //     // TODO: Navigate to terminal map
+                        //   },
+                        // ),
+                        // _buildQuickAccessCard(
+                        //   icon: Icons.emergency,
+                        //   title: 'Emergency',
+                        //   subtitle: 'Important contacts',
+                        //   color: Colors.red,
+                        //   onTap: () {
+                        //     // TODO: Navigate to emergency contacts
+                        //   },
+                        // ),
+                      ],
+                    ),
                   ],
                 ),
               ),

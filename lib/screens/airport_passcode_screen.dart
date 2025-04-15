@@ -3,7 +3,12 @@ import 'package:get/get.dart';
 import '../services/api_helper.dart';
 
 class AirportPasscodeScreen extends StatefulWidget {
-  const AirportPasscodeScreen({super.key});
+  final String? initialAirportCode;
+  
+  const AirportPasscodeScreen({
+    super.key,
+    this.initialAirportCode,
+  });
 
   @override
   State<AirportPasscodeScreen> createState() => _AirportPasscodeScreenState();
@@ -22,6 +27,7 @@ class _AirportPasscodeScreenState extends State<AirportPasscodeScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedAirportCode = widget.initialAirportCode;
     _loadAirports();
   }
 
