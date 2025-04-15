@@ -212,6 +212,58 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
     }
   }
 
+  Future<void> _addMembers() async {
+    try {
+      // Get current participants
+      final currentParticipants = await _supabase
+          .from('chat_participants')
+          .select('user_id')
+          .eq('chat_id', widget.chatId);
+
+      final currentParticipantIds = currentParticipants.map((p) => p['user_id'] as String).toList();
+
+      // Get all users except current participants
+      final users = await _supabase
+          .from('profiles')
+          .select('id, display_name')
+          .not('id', 'in', currentParticipantIds);
+
+      if (users.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No users available to add')),
+          );
+        }
+        return;
+      }
+
+      final selectedUsers = await showDialog<List<String>>(
+        context: context,
+        builder: (context) => AddMembersDialog(users: users),
+      );
+
+      if (selectedUsers != null && selectedUsers.isNotEmpty && mounted) {
+        // Add selected users to chat participants
+        for (final userId in selectedUsers) {
+          await _supabase.from('chat_participants').insert({
+            'chat_id': widget.chatId,
+            'user_id': userId,
+          });
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Added ${selectedUsers.length} members to the group')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to add members: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -225,6 +277,10 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
           elevation: 0,
           actions: [
             if (_isGroupChat) ...[
+              IconButton(
+                icon: const Icon(Icons.person_add),
+                onPressed: _addMembers,
+              ),
               IconButton(
                 icon: const Icon(Icons.edit),
                 onPressed: _renameGroup,
@@ -357,6 +413,64 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class AddMembersDialog extends StatefulWidget {
+  final List<Map<String, dynamic>> users;
+
+  const AddMembersDialog({
+    super.key,
+    required this.users,
+  });
+
+  @override
+  State<AddMembersDialog> createState() => _AddMembersDialogState();
+}
+
+class _AddMembersDialogState extends State<AddMembersDialog> {
+  final List<String> _selectedUsers = [];
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add Members'),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 300,
+        child: ListView.builder(
+          itemCount: widget.users.length,
+          itemBuilder: (context, index) {
+            final user = widget.users[index];
+            final isSelected = _selectedUsers.contains(user['id']);
+            
+            return CheckboxListTile(
+              title: Text(user['display_name'] ?? 'Unknown User'),
+              value: isSelected,
+              onChanged: (bool? value) {
+                setState(() {
+                  if (value == true) {
+                    _selectedUsers.add(user['id']);
+                  } else {
+                    _selectedUsers.remove(user['id']);
+                  }
+                });
+              },
+            );
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, _selectedUsers),
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 } 
