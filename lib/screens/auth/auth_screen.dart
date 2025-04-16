@@ -133,15 +133,16 @@ class _AuthScreenState extends State<AuthScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const SizedBox(height: 48),
-                Text(
-                  'CrewTap',
-                  style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
+                // Text(
+                //   'CrewTap',
+                //   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+                //     color: Colors.blue,
+                //     fontWeight: FontWeight.bold,
+                //   ),
+                //   textAlign: TextAlign.center,
+                // ),
+                Image.asset('assets/crewtap_icon.png', height: 100),
+                const SizedBox(height: 8),  
                 Text(
                   _isSignIn ? 'Welcome Back!' : 'Create Account',
                   style: Theme.of(context).textTheme.headlineSmall,
