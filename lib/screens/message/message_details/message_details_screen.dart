@@ -224,10 +224,10 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
 
       final currentParticipantIds = currentParticipants.map((p) => p['user_id'] as String).toList();
 
-      // Get all users except current participants
+      // Get all users except current participants with their position and company info
       final users = await _supabase
           .from('profiles')
-          .select('id, display_name')
+          .select('id, display_name, position, company_name')
           .not('id', 'in', currentParticipantIds);
 
       if (users.isEmpty) {
@@ -496,10 +496,7 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
 class AddMembersDialog extends StatefulWidget {
   final List<Map<String, dynamic>> users;
 
-  const AddMembersDialog({
-    super.key,
-    required this.users,
-  });
+  const AddMembersDialog({super.key, required this.users});
 
   @override
   State<AddMembersDialog> createState() => _AddMembersDialogState();
@@ -522,7 +519,27 @@ class _AddMembersDialogState extends State<AddMembersDialog> {
             final isSelected = _selectedUsers.contains(user['id']);
             
             return CheckboxListTile(
-              title: Text(user['display_name'] ?? 'Unknown User'),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user['display_name'] ?? 'Unknown User',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  if (user['position'] != null || user['company_name'] != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      '${user['position'] ?? ''}${user['position'] != null && user['company_name'] != null ? ' at ' : ''}${user['company_name'] ?? ''}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
               value: isSelected,
               onChanged: (bool? value) {
                 setState(() {
