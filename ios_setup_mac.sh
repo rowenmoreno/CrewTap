@@ -49,7 +49,9 @@ fi
 
 # Get Flutter packages
 echo -e "${YELLOW}Getting Flutter packages...${NC}"
+flutter clean
 flutter pub get
+flutter build ios
 
 # Navigate to iOS directory
 cd ios
@@ -62,38 +64,11 @@ pod cache clean --all
 echo -e "${YELLOW}Installing CocoaPods dependencies...${NC}"
 pod install
 
-# Check if Runner.entitlements exists
-if [ ! -f "Runner/Runner.entitlements" ]; then
-    echo -e "${YELLOW}Creating Runner.entitlements file...${NC}"
-    cat > Runner/Runner.entitlements << EOL
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>com.apple.developer.nfc.readersession.formats</key>
-    <array>
-        <string>NDEF</string>
-        <string>TAG</string>
-		<string>PACE</string>
-	</array>
-    </array>
-</dict>
-</plist>
-EOL
-fi
-
 # Open Xcode workspace
 echo -e "${YELLOW}Opening Xcode workspace...${NC}"
 open Runner.xcworkspace
 
 echo -e "${GREEN}iOS setup completed!${NC}"
-echo -e "${YELLOW}Next steps in Xcode:${NC}"
-echo "1. Select the Runner target"
-echo "2. Go to Signing & Capabilities"
-echo "3. Add 'Near Field Communication Tag Reading' capability"
-echo "4. Ensure your Apple Developer account has NFC capability enabled"
-echo "5. Update your provisioning profile in the Apple Developer Portal"
-echo "6. Download and install the new provisioning profile"
 
 # Return to project root
 cd .. 

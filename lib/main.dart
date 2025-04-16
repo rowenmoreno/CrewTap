@@ -10,14 +10,13 @@ import 'config/supabase_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   
-  // Load environment variables
-  // await dotenv.load(fileName: ".env");
-  
+  await dotenv.load(fileName: ".env");
   // Initialize Supabase
   await Supabase.initialize(
-    url: 'https://wnfpmroccytnifwvhznb.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InduZnBtcm9jY3l0bmlmd3Zoem5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMyOTYwODQsImV4cCI6MjA1ODg3MjA4NH0.7VBD0mG003e_AC2oDjd0SKp--3YCa7eOxeUX5yQlJDg',
+    url: SupabaseConfig.url,
+    anonKey: SupabaseConfig.anonKey,
   );
   
   runApp(const MyApp());
