@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
-import '../../services/api_helper.dart';
 import 'dart:math';
 import '../../services/supabase_service.dart';
-import '../crew_connect_screen.dart';
 import '../passcode/airport_passcode_screen.dart';
 import '../profile/profile_screen.dart';
 import 'controller/dashboard_controller.dart';
