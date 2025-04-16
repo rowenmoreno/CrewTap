@@ -63,7 +63,7 @@ class _OnboardingCarouselState extends State<OnboardingCarousel> {
                     height: 200,
                     width: 200,
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: Colors.blue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
@@ -103,7 +103,7 @@ class _OnboardingCarouselState extends State<OnboardingCarousel> {
                 margin: const EdgeInsets.symmetric(horizontal: 4.0),
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.blue.withOpacity(
+                  color: Colors.blue.withValues(alpha: 
                     _currentIndex == entry.key ? 0.9 : 0.4,
                   ),
                 ),
