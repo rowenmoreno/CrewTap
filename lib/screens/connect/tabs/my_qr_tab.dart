@@ -28,8 +28,6 @@ class _MyQRTabState extends State<MyQRTab> {
   bool _isLoading = true;
   bool _hasError = false;
   String? _errorMessage;
-  User? _userData;
-  Map<String, dynamic>? _userProfile;
   String? _groupName;
 
   @override

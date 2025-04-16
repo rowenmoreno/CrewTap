@@ -5,7 +5,7 @@ import 'dart:async';
 import 'dart:developer' as developer;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
-import '../../services/supabase_service.dart';
+import '../../../services/supabase_service.dart';
 
 class MessageDetailsScreen extends StatefulWidget {
   final String chatId;

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../../services/supabase_service.dart';
-import '../../message/message_details_screen.dart';
+import '../../message/message_details/message_details_screen.dart';
 
 class ScanTab extends StatefulWidget {
   const ScanTab({super.key});

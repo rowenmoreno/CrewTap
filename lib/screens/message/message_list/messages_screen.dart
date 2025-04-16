@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart'; // For date formatting
-import '../../../services/supabase_service.dart';
+import '../../../../services/supabase_service.dart';
 import 'dart:async'; // For Timer
-import 'message_details_screen.dart';
+import '../message_details/message_details_screen.dart';
 
 class MessagesScreen extends StatefulWidget {
   const MessagesScreen({super.key});

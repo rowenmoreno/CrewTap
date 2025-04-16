@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'connect/connect_screen.dart';
-import 'message/messages_screen.dart';
+import 'message/message_list/messages_screen.dart';
 import 'groups/groups_screen.dart';
 import 'profile/profile_screen.dart';
 import 'profile/edit_profile_screen.dart';
