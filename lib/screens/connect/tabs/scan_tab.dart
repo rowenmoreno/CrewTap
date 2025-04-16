@@ -41,19 +41,28 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _createGroupAndJoin(String groupName, String creatorId, int durationHours) async {
+  String _generateUniqueGroupName() {
+    final now = DateTime.now();
+    final month = now.month.toString().padLeft(2, '0');
+    final day = now.day.toString().padLeft(2, '0');
+    final hour = now.hour.toString().padLeft(2, '0');
+    final minute = now.minute.toString().padLeft(2, '0');
+    final second = now.second.toString().padLeft(2, '0');
+    
+    return 'Crew-${month}${day}-${hour}${minute}';
+  }
+
+  Future<void> _createGroupAndJoin(String groupName, String userId, String creatorId) async {
     try {
-      debugPrint('Creating group chat: $groupName with duration: $durationHours hours');
-      
-      // Get current user's ID
       final currentUser = SupabaseService.client.auth.currentUser;
       if (currentUser == null) {
         throw Exception('User not authenticated');
       }
 
-      // Calculate expiry time based on selected duration
-      final now = DateTime.now();
-      final expiryTime = now.add(Duration(hours: durationHours));
+      final now = DateTime.now().toUtc();
+      final expiryTime = now.add(const Duration(hours: 24));
+      final expiryTimeStr = expiryTime.toIso8601String();
+
 
       // Insert into chat table
       final chatResponse = await SupabaseService.client
@@ -63,7 +72,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
             'type': 'group',
             'created_at': now.toIso8601String(),
             'created_by': currentUser.id,
-            'expiry_time': expiryTime.toIso8601String(),
+            'expiry_time': expiryTimeStr,
           })
           .select()
           .single();
@@ -252,7 +261,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
 
   void _showUserDataDialog(Map<String, dynamic> userData) {
     final TextEditingController groupNameController = TextEditingController(
-      text: 'Connection with ${userData['creator_name']}',
+      text: _generateUniqueGroupName(),
     );
     
     // Duration state
@@ -391,7 +400,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
                   await _createGroupAndJoin(
                     groupNameController.text,
                     userData['creator_id'],
-                    hours,
+                    userData['creator_id'],
                   );
                   if (mounted) {
                     Navigator.pop(context);

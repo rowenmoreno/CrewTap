@@ -19,14 +19,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
       appBar: AppBar(
         title: const Text('Groups'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner),
-            onPressed: () {},
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
         ],
       ),
       body: Column(

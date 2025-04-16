@@ -147,12 +147,12 @@ class _MessagesScreenState extends State<MessagesScreen> {
         }
 
          // Filter out expired chats before setting state
-          final now = DateTime.now();
+          final now = DateTime.now().toUtc();
           updatedChats = updatedChats.where((chat) {
               final expiryTimeStr = chat['expiry_time'] as String?;
               if (expiryTimeStr == null) return true; // Never expires
-              final expiryTime = DateTime.tryParse(expiryTimeStr);
-              return expiryTime != null && expiryTime.isAfter(now);
+              final expiryTime = DateTime.parse(expiryTimeStr);
+              return expiryTime.isAfter(now);
           }).toList();
 
 
@@ -192,16 +192,15 @@ class _MessagesScreenState extends State<MessagesScreen> {
 
  String _formatRemainingTime(String? expiryTimeString) {
     if (expiryTimeString == null) {
-      return 'Never expires'; // Or return empty string: ''
+      return 'Never expires';
     }
-    final expiryTime = DateTime.tryParse(expiryTimeString);
-    if (expiryTime == null) {
-      return 'Invalid date';
-    }
-
-    final now = DateTime.now();
+    
+    // Parse the UTC time from the database
+    final expiryTime = DateTime.parse(expiryTimeString);
+    // Get current time in UTC for comparison
+    final now = DateTime.now().toUtc();
     final difference = expiryTime.difference(now);
-
+    
     if (difference.isNegative) {
       return 'Expired';
     }
