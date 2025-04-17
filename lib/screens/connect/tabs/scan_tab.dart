@@ -51,7 +51,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
     return 'Crew-${month}${day}-${hour}${minute}';
   }
 
-  Future<void> _createGroupAndJoin(String groupName, String userId, String creatorId) async {
+  Future<String?> _createGroupAndJoin(String groupName, String userId, String creatorId) async {
     try {
       final currentUser = SupabaseService.client.auth.currentUser;
       if (currentUser == null) {
@@ -61,7 +61,6 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
       final now = DateTime.now().toUtc();
       final expiryTime = now.add(const Duration(hours: 24));
       final expiryTimeStr = expiryTime.toIso8601String();
-
 
       // Insert into chat table
       final chatResponse = await SupabaseService.client
@@ -100,6 +99,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
           });
 
       debugPrint('User added to group chat');
+      return chatResponse['id'];
     } catch (e) {
       debugPrint('Error creating group chat: $e');
       rethrow;
@@ -198,13 +198,13 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
             ),
           );
           // Navigate to the existing group chat
-          Navigator.pushReplacement(
+          Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => MessageDetailsScreen(
                 chatId: chatId,
                 recipientName: groupName,
-                recipientId: chatId, // Using chatId as recipientId for group chats
+                recipientId: chatId,
               ),
             ),
           );
@@ -235,7 +235,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
             builder: (context) => MessageDetailsScreen(
               chatId: chatId,
               recipientName: groupName,
-              recipientId: chatId, // Using chatId as recipientId for group chats
+              recipientId: chatId,
             ),
           ),
         );
@@ -396,17 +396,28 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
                 try {
                   // Convert duration string to hours
                   final hours = int.parse(selectedDuration.split(' ')[0]);
-                  await _createGroupAndJoin(
+                  final chatId = await _createGroupAndJoin(
                     groupNameController.text,
                     userData['creator_id'],
                     userData['creator_id'],
                   );
-                  if (mounted) {
+                  if (mounted && chatId != null) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Successfully joined the group!'),
                         backgroundColor: Colors.green,
+                      ),
+                    );
+                    // Navigate to the new group chat
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => MessageDetailsScreen(
+                          chatId: chatId,
+                          recipientName: groupNameController.text,
+                          recipientId: chatId,
+                        ),
                       ),
                     );
                   }

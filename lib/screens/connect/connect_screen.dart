@@ -47,10 +47,6 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
           .eq('id', user.id)
           .single();
 
-      if (profileResponse == null) {
-        throw Exception('Profile not found');
-      }
-
       setState(() {
         _userProfile = profileResponse;
         _isLoading = false;
