@@ -14,6 +14,7 @@ class MessagesController extends GetxController {
   final errorMessage = RxnString();
   final chats = <Map<String, dynamic>>[].obs;
   final filteredChats = <Map<String, dynamic>>[].obs;
+  final currentTime = DateTime.now().toUtc().obs;
 
   @override
   void onInit() {
@@ -33,8 +34,29 @@ class MessagesController extends GetxController {
 
   void startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      update(); // Trigger rebuild to update remaining time
+      currentTime.value = DateTime.now().toUtc();
+      // Only update filtered chats if there are chats with expiry times
+      if (filteredChats.any((chat) => chat['expiry_time'] != null)) {
+        _updateExpiryTimes();
+      }
     });
+  }
+
+  void _updateExpiryTimes() {
+    final now = currentTime.value;
+    final updatedChats = chats.map((chat) {
+      final expiryTimeStr = chat['expiry_time'] as String?;
+      if (expiryTimeStr == null) return chat;
+      
+      final expiryTime = DateTime.parse(expiryTimeStr);
+      if (expiryTime.isBefore(now)) {
+        return {...chat, 'has_expired': true};
+      }
+      return chat;
+    }).toList();
+
+    chats.value = updatedChats;
+    _filterChats(searchController.text);
   }
 
   void _filterChats(String query) {
@@ -166,7 +188,7 @@ class MessagesController extends GetxController {
     if (expiryTimeString == null) return 'Never expires';
     
     final expiryTime = DateTime.parse(expiryTimeString);
-    final now = DateTime.now().toUtc();
+    final now = currentTime.value;
     final difference = expiryTime.difference(now);
     
     if (difference.isNegative) return 'Expired';
