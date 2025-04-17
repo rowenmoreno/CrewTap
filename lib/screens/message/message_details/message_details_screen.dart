@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'dart:math';
 import 'dart:developer' as developer;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
@@ -34,6 +35,8 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
   Map<String, String> _senderNames = {};
   bool _isGroupChat = false;
   String _groupName = '';
+  final _membersListKey = GlobalKey();
+  final _memberUpdateNotifier = ValueNotifier<int>(0);
 
   @override
   void initState() {
@@ -47,6 +50,7 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
     _messageController.dispose();
     _scrollController.dispose();
     _messagesSubscription?.cancel();
+    _memberUpdateNotifier.dispose();
     super.dispose();
   }
 
@@ -256,6 +260,9 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
           });
         }
 
+        // Trigger members list refresh
+        _memberUpdateNotifier.value++;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Row(
@@ -378,6 +385,109 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
     );
   }
 
+  Widget _buildMembersList() {
+    return ValueListenableBuilder<int>(
+      valueListenable: _memberUpdateNotifier,
+      builder: (context, _, __) => FutureBuilder<List<Map<String, dynamic>>>(
+        key: _membersListKey,
+        future: _supabase
+            .from('chat_participants')
+            .select('user_id')
+            .eq('chat_id', widget.chatId),
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            final participantIds = snapshot.data!.map((p) => p['user_id'] as String).toList();
+            return FutureBuilder<List<Map<String, dynamic>>>(
+              future: _supabase
+                  .from('profiles')
+                  .select('id, display_name')
+                  .inFilter('id', participantIds),
+              builder: (context, snapshot) {
+                if (snapshot.hasData) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: snapshot.data!.map((user) {
+                        final displayName = user['display_name'] as String? ?? 'Unknown';
+                        final names = displayName.split(' ');
+                        final initials = names.length > 1
+                            ? '${names[0][0]}${names[1][0]}'
+                            : displayName.substring(0, min(2, displayName.length));
+                        
+                        // Generate a consistent color based on the user's ID
+                        final colorSeed = user['id'].hashCode;
+                        final colors = [
+                          const Color(0xFF0EA5E9), // Blue
+                          const Color(0xFF10B981), // Green
+                          const Color(0xFFF59E0B), // Yellow
+                          const Color(0xFFEF4444), // Red
+                          const Color(0xFF8B5CF6), // Purple
+                          const Color(0xFFEC4899), // Pink
+                        ];
+                        final color = colors[colorSeed % colors.length];
+                        
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 16),
+                          child: Column(
+                            children: [
+                              Stack(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: color.withOpacity(0.2),
+                                    child: Text(
+                                      initials.toUpperCase(),
+                                      style: TextStyle(
+                                        color: color,
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                  if (user['id'] == _supabase.auth.currentUser?.id)
+                                    Positioned(
+                                      right: 0,
+                                      bottom: 0,
+                                      child: Container(
+                                        width: 12,
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          color: Colors.green,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                names[0],
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Color(0xFF64748B),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return WillPopScope(
@@ -387,55 +497,172 @@ class _MessageDetailsScreenState extends State<MessageDetailsScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: Text(_isGroupChat ? _groupName : widget.recipientName),
-          elevation: 0,
-          actions: [
-            if (_isGroupChat) ...[
-              IconButton(
-                icon: const Icon(Icons.qr_code),
-                onPressed: _shareGroupQRCode,
+          title: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _isGroupChat ? _groupName : widget.recipientName,
+                style: const TextStyle(fontSize: 18),
               ),
-              IconButton(
-                icon: const Icon(Icons.person_add),
-                onPressed: _addMembers,
-              ),
-              IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: _renameGroup,
-              ),
-              IconButton(
-                icon: const Icon(Icons.exit_to_app),
-                onPressed: () {
-                  showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
-                      title: const Text('Leave Group'),
-                      content: const Text('Are you sure you want to leave this group?'),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cancel'),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _leaveGroup();
-                          },
-                          style: TextButton.styleFrom(
-                            foregroundColor: Colors.red,
+              if (_isGroupChat) ...[
+                const SizedBox(height: 4),
+                FutureBuilder<Map<String, dynamic>>(
+                  future: _supabase
+                      .from('chats')
+                      .select('expiry_time')
+                      .eq('id', widget.chatId)
+                      .single(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      final expiryTime = snapshot.data!['expiry_time'] as String?;
+                      if (expiryTime != null) {
+                        final now = DateTime.now().toUtc();
+                        final expiry = DateTime.parse(expiryTime);
+                        final difference = expiry.difference(now);
+                        
+                        String timeLeft;
+                        if (difference.isNegative) {
+                          timeLeft = 'Expired';
+                        } else if (difference.inDays > 0) {
+                          timeLeft = '${difference.inDays}d ${difference.inHours % 24}h left';
+                        } else if (difference.inHours > 0) {
+                          timeLeft = '${difference.inHours}h ${difference.inMinutes % 60}m left';
+                        } else {
+                          timeLeft = '${difference.inMinutes}m left';
+                        }
+                        
+                        return Text(
+                          timeLeft,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: difference.isNegative ? Colors.red : Colors.grey[600],
                           ),
-                          child: const Text('Leave'),
+                        );
+                      }
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ],
+            ],
+          ),
+          actions: [
+            if (_isGroupChat)
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) {
+                  switch (value) {
+                    case 'rename':
+                      _renameGroup();
+                      break;
+                    case 'add_members':
+                      _addMembers();
+                      break;
+                    case 'share':
+                      _shareGroupQRCode();
+                      break;
+                    case 'leave':
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Leave Group'),
+                          content: const Text('Are you sure you want to leave this group?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
+                            ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _leaveGroup();
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
+                              child: const Text('Leave'),
+                            ),
+                          ],
                         ),
+                      );
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'rename',
+                    child: Row(
+                      children: [
+                        Icon(Icons.edit, size: 20),
+                        SizedBox(width: 8),
+                        Text('Rename Group'),
                       ],
                     ),
-                  );
-                },
+                  ),
+                  const PopupMenuItem(
+                    value: 'add_members',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_add, size: 20),
+                        SizedBox(width: 8),
+                        Text('Add Members'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'share',
+                    child: Row(
+                      children: [
+                        Icon(Icons.qr_code, size: 20),
+                        SizedBox(width: 8),
+                        Text('Share Group'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'leave',
+                    child: Row(
+                      children: [
+                        Icon(Icons.exit_to_app, size: 20),
+                        SizedBox(width: 8),
+                        Text('Leave Group'),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
           ],
         ),
         body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (_isGroupChat)
+              Container(
+                padding: const EdgeInsets.all(16),
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  border: Border(
+                    bottom: BorderSide(color: Colors.grey[200]!),
+                  ),
+                ),
+                child: Column(
+                mainAxisAlignment: MainAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Crew Members',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF64748B),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildMembersList(),
+                  ],
+                ),
+              ),
             Expanded(
               child: _isLoading
                   ? const Center(child: CircularProgressIndicator())

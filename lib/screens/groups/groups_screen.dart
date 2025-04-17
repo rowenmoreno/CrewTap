@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'controller/groups_controller.dart';
 import '../message/message_details/message_details_screen.dart';
+import '../../../services/supabase_service.dart';
 
 class GroupsScreen extends StatefulWidget {
   const GroupsScreen({super.key});
@@ -11,6 +12,243 @@ class GroupsScreen extends StatefulWidget {
 }
 
 class _GroupsScreenState extends State<GroupsScreen> {
+  final _supabase = SupabaseService.client;
+  final TextEditingController _groupNameController = TextEditingController();
+  String _selectedDuration = '24 hours';
+  final List<String> _durations = ['24 hours', '48 hours', '72 hours'];
+  List<Map<String, dynamic>> _selectedMembers = [];
+
+  @override
+  void dispose() {
+    _groupNameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _showCreateGroupDialog() async {
+    // Get all users except current user
+    final currentUser = _supabase.auth.currentUser;
+    if (currentUser == null) return;
+
+    final users = await _supabase
+        .from('profiles')
+        .select('id, display_name, position, company_name')
+        .not('id', 'eq', currentUser.id);
+
+    if (!mounted) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Create New Group'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Group Name',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _groupNameController,
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.grey[300]!,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.grey[300]!,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Duration',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _selectedDuration,
+                  items: _durations.map((duration) {
+                    return DropdownMenuItem(
+                      value: duration,
+                      child: Text(duration),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() {
+                        _selectedDuration = value;
+                      });
+                    }
+                  },
+                  decoration: InputDecoration(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.grey[300]!,
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: Colors.grey[300]!,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Select Members',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  height: 200,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey[300]!),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.builder(
+                    itemCount: users.length,
+                    itemBuilder: (context, index) {
+                      final user = users[index];
+                      final isSelected = _selectedMembers.any((m) => m['id'] == user['id']);
+                      return CheckboxListTile(
+                        title: Text(user['display_name'] ?? 'Unknown'),
+                        subtitle: Text('${user['position'] ?? ''} at ${user['company_name'] ?? ''}'),
+                        value: isSelected,
+                        onChanged: (value) {
+                          setState(() {
+                            if (value == true) {
+                              _selectedMembers.add(user);
+                            } else {
+                              _selectedMembers.removeWhere((m) => m['id'] == user['id']);
+                            }
+                          });
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: Colors.grey[700],
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                if (_groupNameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a group name')),
+                  );
+                  return;
+                }
+                Navigator.pop(context, true);
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result == true) {
+      await _createGroup();
+    }
+  }
+
+  Future<void> _createGroup() async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) return;
+
+      final now = DateTime.now().toUtc();
+      final hours = int.parse(_selectedDuration.split(' ')[0]);
+      final expiryTime = now.add(Duration(hours: hours));
+      final expiryTimeStr = expiryTime.toIso8601String();
+
+      // Create the group chat
+      final chatResponse = await _supabase
+          .from('chats')
+          .insert({
+            'name': _groupNameController.text.trim(),
+            'type': 'group',
+            'created_at': now.toIso8601String(),
+            'created_by': currentUser.id,
+            'expiry_time': expiryTimeStr,
+          })
+          .select()
+          .single();
+
+      // Add all participants
+      final participants = [
+        {'user_id': currentUser.id, 'chat_id': chatResponse['id']},
+        ..._selectedMembers.map((member) => {
+          'user_id': member['id'],
+          'chat_id': chatResponse['id'],
+        }),
+      ];
+
+      await _supabase.from('chat_participants').insert(participants);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Group created successfully')),
+        );
+        // Navigate to the new group chat
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MessageDetailsScreen(
+              chatId: chatResponse['id'],
+              recipientName: _groupNameController.text.trim(),
+              recipientId: chatResponse['id'],
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to create group: ${e.toString()}')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(GroupsController());
@@ -19,6 +257,10 @@ class _GroupsScreenState extends State<GroupsScreen> {
       appBar: AppBar(
         title: const Text('Groups'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showCreateGroupDialog,
+          ),
         ],
       ),
       body: Column(
