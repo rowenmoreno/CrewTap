@@ -83,13 +83,16 @@ class MessagesScreen extends StatelessWidget {
                 return _buildEmptyState();
               }
 
-              return ListView.separated(
-                itemCount: controller.filteredChats.length,
-                separatorBuilder: (context, index) => Divider(height: 1, indent: 72, color: Colors.grey[200]),
-                itemBuilder: (context, index) {
-                  final chat = controller.filteredChats[index];
-                  return _buildChatListItem(chat, controller);
-                },
+              return RefreshIndicator(
+                onRefresh: () => controller.initializeMessagesScreen(refresh: true),
+                child: ListView.separated(
+                  itemCount: controller.filteredChats.length,
+                  separatorBuilder: (context, index) => Divider(height: 1, indent: 72, color: Colors.grey[200]),
+                  itemBuilder: (context, index) {
+                    final chat = controller.filteredChats[index];
+                    return _buildChatListItem(chat, controller);
+                  },
+                ),
               );
             }),
           ),
