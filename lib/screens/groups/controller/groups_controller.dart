@@ -1,28 +1,36 @@
+import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../services/supabase_service.dart';
 import 'dart:async';
 
 class GroupsController extends GetxController {
   final _supabase = SupabaseService.client;
-  StreamSubscription<List<Map<String, dynamic>>>? _groupsSubscription;
+  final TextEditingController groupNameController = TextEditingController();
+  final searchQuery = ''.obs;
+  final isLoading = false.obs;
+  final errorMessage = ''.obs;
+  final selectedDuration = '24 hours'.obs;
+  final selectedMembers = <Map<String, dynamic>>[].obs;
+  final joinedGroups = <Map<String, dynamic>>[].obs;
+  final availableGroups = <Map<String, dynamic>>[].obs;
+  RxList filteredJoinedGroups = <Map<String, dynamic>>[].obs;
+  RxList filteredAvailableGroups = <Map<String, dynamic>>[].obs;
   
-  final RxBool isLoading = true.obs;
-  final RxString errorMessage = ''.obs;
-  final RxList<Map<String, dynamic>> joinedGroups = <Map<String, dynamic>>[].obs;
-  final RxList<Map<String, dynamic>> availableGroups = <Map<String, dynamic>>[].obs;
-  final RxList<Map<String, dynamic>> filteredJoinedGroups = <Map<String, dynamic>>[].obs;
-  final RxList<Map<String, dynamic>> filteredAvailableGroups = <Map<String, dynamic>>[].obs;
-  final RxString searchQuery = ''.obs;
+  final durations = ['24 hours', '48 hours', '72 hours'];
+  StreamSubscription<List<Map<String, dynamic>>>? _groupsSubscription;
 
   @override
-  void onInit() {
+  void onInit() async {
     super.onInit();
-    initializeGroups();
+    await initializeGroups();
     ever(searchQuery, _filterGroups);
+    _filterGroups(searchQuery.value);
   }
 
   @override
   void onClose() {
+    groupNameController.dispose();
     _groupsSubscription?.cancel();
     super.onClose();
   }
@@ -46,133 +54,138 @@ class GroupsController extends GetxController {
     }).toList();
   }
 
-  Future<void> joinGroup(String groupId) async {
-    try {
-      final userId = _supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      await _supabase.from('chat_participants').insert({
-        'chat_id': groupId,
-        'user_id': userId,
-      });
-
-      // Refresh groups after joining
-      await initializeGroups(refresh: true);
-    } catch (e) {
-      errorMessage.value = "Failed to join group: ${e.toString()}";
-    }
-  }
-
   Future<void> initializeGroups({bool refresh = false}) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) {
-      isLoading.value = false;
-      errorMessage.value = "User not logged in.";
-      return;
-    }
-
-    if (!refresh) {
-      isLoading.value = true;
-    }
-
     try {
-      // Get user's group chats
-      final userGroups = await _supabase
-          .from('chat_participants')
-          .select('chat_id')
-          .eq('user_id', userId);
+      isLoading.value = true;
+      errorMessage.value = '';
 
-      final joinedGroupIds = userGroups.map((g) => g['chat_id'] as String).toList();
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) {
+        throw Exception('No user logged in');
+      }
 
-      // Listen for real-time changes in group chats
-      final groupsStream = _supabase
+      // Get joined groups
+      final joinedGroupsResponse = await _supabase
           .from('chats')
-          .stream(primaryKey: ['id'])
+          .select('*, chat_participants!inner(*)')
+          .eq('chat_participants.user_id', currentUser.id)
           .eq('type', 'group')
           .order('created_at', ascending: false);
 
-      _groupsSubscription?.cancel();
-      _groupsSubscription = groupsStream.listen((groupsData) async {
-        List<Map<String, dynamic>> updatedJoinedGroups = [];
-        List<Map<String, dynamic>> updatedAvailableGroups = [];
+      // Filter out expired groups and add member count
+      final now = DateTime.now().toUtc();
+      final filteredGroups = joinedGroupsResponse.where((group) {
+        final expiryTime = group['expiry_time'] as String?;
+        if (expiryTime == null) return false;
+        final expiry = DateTime.parse(expiryTime);
+        return expiry.isAfter(now);
+      }).toList();
 
-        for (var group in groupsData) {
-          // Get participant count
-          final participants = await _supabase
+      // Get member counts for each group
+      final groupsWithCounts = await Future.wait(
+        filteredGroups.map((group) async {
+          final memberCountResponse = await _supabase
               .from('chat_participants')
-              .select('user_id')
-              .eq('chat_id', group['id']);
+              .select('count')
+              .eq('chat_id', group['id'])
+              .single();
+              
+          return {
+            ...group,
+            'member_count': memberCountResponse['count'] ?? 0,
+          };
+        }),
+      );
 
-          group['member_count'] = participants.length;
-
-          // Get last message
-          // final lastMessageResponse = await _supabase
-          //     .from('chat_messages')
-          //     .select('content, created_at')
-          //     .eq('chat_id', group['id'])
-          //     .order('created_at', ascending: false)
-          //     .limit(1)
-          //     .maybeSingle();
-
-          // group['last_message'] = lastMessageResponse?['content'] ?? 'No messages yet';
-          // group['last_message_time'] = lastMessageResponse?['created_at'];
-
-          // Check if group is expired
-          final now = DateTime.now();
-          final expiryTimeStr = group['expiry_time'] as String?;
-          final expiryTime = expiryTimeStr != null ? DateTime.tryParse(expiryTimeStr) : null;
-          final isExpired = expiryTime != null && expiryTime.isBefore(now);
-
-          if (!isExpired) {
-            if (joinedGroupIds.contains(group['id'])) {
-              updatedJoinedGroups.add(group);
-            } else {
-              updatedAvailableGroups.add(group);
-            }
-          }
-        }
-
-        joinedGroups.value = updatedJoinedGroups;
-        availableGroups.value = updatedAvailableGroups;
-        _filterGroups(searchQuery.value);
-        isLoading.value = false;
-        errorMessage.value = '';
-      }, onError: (error) {
-        isLoading.value = false;
-        errorMessage.value = "Error listening to groups: ${error.toString()}";
-      });
-    } catch (e) {
+      joinedGroups.value = groupsWithCounts;
       isLoading.value = false;
-      errorMessage.value = "Failed to load groups: ${e.toString()}";
+    } catch (e) {
+      print('Error loading groups: $e');
+      errorMessage.value = e.toString();
+      isLoading.value = false;
     }
   }
 
-  String formatRemainingTime(String? expiryTimeString) {
-    if (expiryTimeString == null) {
-      return 'Never expires';
-    }
-    final expiryTime = DateTime.tryParse(expiryTimeString);
-    if (expiryTime == null) {
-      return 'Invalid date';
-    }
+  Future<void> createGroup() async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) return;
 
-    final now = DateTime.now();
-    final difference = expiryTime.difference(now);
+      final now = DateTime.now().toUtc();
+      final hours = int.parse(selectedDuration.value.split(' ')[0]);
+      final expiryTime = now.add(Duration(hours: hours));
+      final expiryTimeStr = expiryTime.toIso8601String();
 
-    if (difference.isNegative) {
-      return 'Expired';
+      // Create the group chat
+      final chatResponse = await _supabase
+          .from('chats')
+          .insert({
+            'name': groupNameController.text.trim(),
+            'type': 'group',
+            'created_at': now.toIso8601String(),
+            'created_by': currentUser.id,
+            'expiry_time': expiryTimeStr,
+          })
+          .select()
+          .single();
+
+      // Add all participants
+      final participants = [
+        {'user_id': currentUser.id, 'chat_id': chatResponse['id']},
+        ...selectedMembers.map((member) => {
+          'user_id': member['id'],
+          'chat_id': chatResponse['id'],
+        }),
+      ];
+
+      await _supabase.from('chat_participants').insert(participants);
+
+      // Clear form
+      groupNameController.clear();
+      selectedMembers.clear();
+      selectedDuration.value = '24 hours';
+
+      // Refresh groups list
+      await initializeGroups(refresh: true);
+    } catch (e) {
+      print('Error creating group: $e');
+      errorMessage.value = e.toString();
     }
+  }
 
-    final days = difference.inDays;
-    final hours = difference.inHours % 24;
+  Future<void> joinGroup(String groupId) async {
+    try {
+      final currentUser = _supabase.auth.currentUser;
+      if (currentUser == null) return;
+
+      await _supabase.from('chat_participants').insert({
+        'user_id': currentUser.id,
+        'chat_id': groupId,
+      });
+
+      await initializeGroups(refresh: true);
+    } catch (e) {
+      print('Error joining group: $e');
+      errorMessage.value = e.toString();
+    }
+  }
+
+  String formatRemainingTime(String? expiryTime) {
+    if (expiryTime == null) return 'Expired';
+    
+    final expiry = DateTime.parse(expiryTime);
+    final now = DateTime.now().toUtc();
+    final difference = expiry.difference(now);
+    
+    if (difference.isNegative) return 'Expired';
+    
+    final hours = difference.inHours;
     final minutes = difference.inMinutes % 60;
-
-    if (days > 0) {
-      return '$days day${days > 1 ? 's' : ''} left';
-    } else if (hours > 0) {
-      return '$hours hr${hours > 1 ? 's' : ''} left';
+    
+    if (hours > 0) {
+      return '$hours h ${minutes}m left';
     } else {
-      return '$minutes min${minutes > 1 ? 's' : ''} left';
+      return '$minutes min left';
     }
   }
 } 
