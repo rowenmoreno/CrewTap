@@ -18,17 +18,17 @@ class _OnboardingCarouselState extends State<OnboardingCarousel> {
     OnboardingSlide(
       title: 'Welcome to CrewTap',
       description: 'Connect with your crew members and stay organized.',
-      // image: 'assets/images/onboarding1.png',
+      image: 'assets/onboarding_1.png',
     ),
     OnboardingSlide(
       title: 'Easy Communication',
       description: 'Chat, share updates, and coordinate with your team.',
-      // image: 'assets/images/onboarding2.png',
+      image: 'assets/onboarding_2.png',
     ),
     OnboardingSlide(
       title: 'Stay Organized',
       description: 'Keep track of tasks and schedules in one place.',
-      // image: 'assets/images/onboarding3.png',
+      image: 'assets/onboarding_3.png',
     ),
   ];
 
@@ -62,15 +62,7 @@ class _OnboardingCarouselState extends State<OnboardingCarousel> {
                   Container(
                     height: 200,
                     width: 200,
-                    decoration: BoxDecoration(
-                      color: Colors.blue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.group,
-                      size: 80,
-                      color: Colors.blue,
-                    ),
+                    child: Image.asset(slide.image!),
                   ),
                   const SizedBox(height: 32),
                   Text(

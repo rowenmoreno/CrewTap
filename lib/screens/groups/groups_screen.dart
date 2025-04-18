@@ -200,20 +200,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
             children: [
               Row(
                 children: [
-                  Container(
-                    width: 40,
-                    height: 40,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.blue[100],
-                    ),
-                    child: Icon(
-                      Icons.group,
-                      color: Colors.blue[700],
-                      size: 20,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +225,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const Spacer(),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
