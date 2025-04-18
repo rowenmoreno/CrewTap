@@ -4,6 +4,7 @@ import 'tabs/my_qr_tab.dart';
 import 'tabs/scan_tab.dart';
 import 'tabs/tap_tab.dart';
 import 'connect_controller.dart';
+import '../../theme/app_theme.dart';
 
 class ConnectScreen extends StatelessWidget {
   const ConnectScreen({super.key});
@@ -27,11 +28,11 @@ class ConnectScreen extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, color: Colors.red, size: 48),
+                const Icon(Icons.error_outline, color: AppColors.runwayRed, size: 48),
                 const SizedBox(height: 16),
                 Text(
                   'Error: ${controller.errorMessage.value}',
-                  style: const TextStyle(color: Colors.red),
+                  style: const TextStyle(color: AppColors.runwayRed),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 16),
@@ -50,6 +51,10 @@ class ConnectScreen extends StatelessWidget {
           title: const Text('Connect'),
           bottom: TabBar(
             controller: controller.tabController,
+            indicatorColor: AppColors.skyBlue,
+            labelColor: AppColors.skyBlue,
+            unselectedLabelColor: AppColors.cloudWhite,
+            indicatorSize: TabBarIndicatorSize.label,
             tabs: const [
               Tab(icon: Icon(Icons.qr_code), text: 'My QR'),
               Tab(icon: Icon(Icons.qr_code_scanner), text: 'Scan'),

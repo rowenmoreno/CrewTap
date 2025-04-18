@@ -6,6 +6,7 @@ import 'groups/groups_screen.dart';
 import 'profile/profile_screen.dart';
 import 'profile/edit_profile_screen.dart';
 import '../services/supabase_service.dart';
+import '../theme/app_theme.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -85,7 +86,9 @@ class _MainScreenState extends State<MainScreen> {
     if (_isLoading) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(),
+          child: CircularProgressIndicator(
+            color: AppColors.skyBlue,
+          ),
         ),
       );
     }
@@ -96,16 +99,20 @@ class _MainScreenState extends State<MainScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, color: Colors.red, size: 48),
+              const Icon(Icons.error_outline, color: AppColors.runwayRed, size: 48),
               const SizedBox(height: 16),
               Text(
                 'Error: $_errorMessage',
-                style: const TextStyle(color: Colors.red),
+                style: const TextStyle(color: AppColors.runwayRed),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: _loadUserProfile,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.skyBlue,
+                  foregroundColor: Colors.white,
+                ),
                 child: const Text('Retry'),
               ),
             ],
@@ -119,25 +126,33 @@ class _MainScreenState extends State<MainScreen> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        indicatorColor: AppColors.skyBlue.withOpacity(0.2),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.person),
+            selectedIcon: Icon(Icons.person, color: AppColors.skyBlue),
             label: 'Profile',
           ),
           NavigationDestination(
             icon: Icon(Icons.message),
+            selectedIcon: Icon(Icons.message, color: AppColors.skyBlue),
             label: 'Messages',
           ),
           NavigationDestination(
             icon: Icon(Icons.home),
+            selectedIcon: Icon(Icons.home, color: AppColors.skyBlue),
             label: 'Home',
           ),
           NavigationDestination(
             icon: Icon(Icons.qr_code_scanner),
+            selectedIcon: Icon(Icons.qr_code_scanner, color: AppColors.skyBlue),
             label: 'Connect',
           ),
           NavigationDestination(
             icon: Icon(Icons.group),
+            selectedIcon: Icon(Icons.group, color: AppColors.skyBlue),
             label: 'Groups',
           ),
         ],

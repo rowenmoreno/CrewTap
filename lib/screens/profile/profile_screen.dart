@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/supabase_service.dart';
 import 'dart:developer' as developer;
 import 'edit_profile_screen.dart';
+import '../../theme/app_theme.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -133,12 +134,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           CircleAvatar(
             radius: 50,
-            backgroundColor: Colors.grey[200],
+            backgroundColor: AppColors.skyBlue.withOpacity(0.15),
             child: Text(
               _getInitials(displayName),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 32,
                 fontWeight: FontWeight.bold,
+                color: AppColors.skyBlue,
               ),
             ),
           ),
@@ -155,8 +157,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             email,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.grey,
+            style: TextStyle(
+              color: AppColors.jetGrey,
             ),
           ),
           const SizedBox(height: 8),
@@ -164,7 +166,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             '$position at $companyName',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.grey[600],
+              color: AppColors.jetGrey,
               fontSize: 16,
             ),
           ),

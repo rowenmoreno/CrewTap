@@ -7,11 +7,11 @@ import 'screens/main_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/dashboard/dashboard_screen.dart';
 import 'config/supabase_config.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  
   await dotenv.load(fileName: ".env");
   // Initialize Supabase
   await Supabase.initialize(
@@ -30,10 +30,10 @@ class MyApp extends StatelessWidget {
     return GetMaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CrewTap',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
-        useMaterial3: true,
-      ),      initialRoute: '/',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: ThemeMode.system, // This will automatically switch between light and dark theme based on system settings
+      initialRoute: '/',
       routes: {
         '/': (context) => const AuthWrapper(),
         '/home': (context) => const MainScreen(),

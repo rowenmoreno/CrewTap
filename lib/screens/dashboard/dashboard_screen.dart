@@ -5,6 +5,8 @@ import '../../services/supabase_service.dart';
 import '../passcode/airport_passcode_screen.dart';
 import '../profile/profile_screen.dart';
 import 'controller/dashboard_controller.dart';
+import '../../theme/app_theme.dart';
+
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -24,8 +26,14 @@ class DashboardScreen extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.only(right: 16.0, left: 16),
               child: Obx(() => CircleAvatar(
-                backgroundColor: Colors.grey[200],
-                child: Text(controller.userInitials.value),
+                backgroundColor: AppColors.skyBlue.withOpacity(0.15),
+                child: Text(
+                  controller.userInitials.value,
+                  style: TextStyle(
+                    color: AppColors.skyBlue,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               )),
             ),
             onSelected: (value) async {

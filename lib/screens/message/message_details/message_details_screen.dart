@@ -5,6 +5,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:math';
 import 'message_details_controller.dart';
+import '../../../theme/app_theme.dart';
 
 class MessageDetailsScreen extends StatelessWidget {
   final String chatId;
@@ -192,12 +193,12 @@ class MessageDetailsScreen extends StatelessWidget {
                           // Generate a consistent color based on the user's ID
                           final colorSeed = user['id'].hashCode;
                           final colors = [
-                            const Color(0xFF0EA5E9), // Blue
-                            const Color(0xFF10B981), // Green
-                            const Color(0xFFF59E0B), // Yellow
-                            const Color(0xFFEF4444), // Red
+                            AppColors.skyBlue,
+                            AppColors.aeroTeal,
+                            AppColors.crewGold,
                             const Color(0xFF8B5CF6), // Purple
                             const Color(0xFFEC4899), // Pink
+                            const Color(0xFFF97316), // Orange
                           ];
                           final color = colors[colorSeed % colors.length];
                           
@@ -209,7 +210,7 @@ class MessageDetailsScreen extends StatelessWidget {
                                   children: [
                                     CircleAvatar(
                                       radius: 20,
-                                      backgroundColor: color.withOpacity(0.2),
+                                      backgroundColor: color.withOpacity(0.15),
                                       child: Text(
                                         initials.toUpperCase(),
                                         style: TextStyle(
@@ -227,7 +228,7 @@ class MessageDetailsScreen extends StatelessWidget {
                                           width: 12,
                                           height: 12,
                                           decoration: BoxDecoration(
-                                            color: Colors.green,
+                                            color: AppColors.aeroTeal,
                                             shape: BoxShape.circle,
                                             border: Border.all(
                                               color: Colors.white,
@@ -241,9 +242,9 @@ class MessageDetailsScreen extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   names[0],
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
-                                    color: Color(0xFF64748B),
+                                    color: AppColors.jetGrey,
                                   ),
                                 ),
                               ],
@@ -328,7 +329,7 @@ class MessageDetailsScreen extends StatelessWidget {
                             ),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
-                              color: isMe ? Colors.blue[900] : Colors.blue[100],
+                              color: isMe ? AppColors.skyBlue : AppColors.aeroTeal.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Column(
@@ -337,7 +338,7 @@ class MessageDetailsScreen extends StatelessWidget {
                                 Text(
                                   message['content'],
                                   style: TextStyle(
-                                    color: isMe ? Colors.white : Colors.black,
+                                    color: isMe ? Colors.white : AppColors.midnightNavy,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -345,7 +346,7 @@ class MessageDetailsScreen extends StatelessWidget {
                                   time,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isMe ? Colors.white70 : Colors.black54,
+                                    color: isMe ? Colors.white70 : AppColors.jetGrey,
                                   ),
                                 ),
                               ],
@@ -361,7 +362,7 @@ class MessageDetailsScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: AppColors.cloudWhite,
                 borderRadius: BorderRadius.circular(24),
               ),
               child: Row(
@@ -369,9 +370,10 @@ class MessageDetailsScreen extends StatelessWidget {
                   Expanded(
                     child: TextField(
                       controller: _messageController,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         hintText: 'Type a message...',
                         border: InputBorder.none,
+                        hintStyle: TextStyle(color: AppColors.jetGrey.withOpacity(0.6)),
                       ),
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
@@ -385,7 +387,7 @@ class MessageDetailsScreen extends StatelessWidget {
                   ),
                   IconButton(
                     icon: const Icon(Icons.send),
-                    color: Colors.blue[300],
+                    color: AppColors.skyBlue,
                     onPressed: () {
                       final text = _messageController.text;
                       if (text.trim().isNotEmpty) {
