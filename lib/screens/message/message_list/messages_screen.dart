@@ -222,7 +222,7 @@ class MessagesScreen extends StatelessWidget {
           )['user_id'];
         }
         
-        final result = await Get.to(
+        await Get.to(
           () => MessageDetailsScreen(
             chatId: chat['id'],
             recipientName: chatName,
@@ -231,9 +231,8 @@ class MessagesScreen extends StatelessWidget {
         );
 
         // Refresh messages when returning from MessageDetailsScreen
-        if (result == true) {
+        
           controller.initializeMessagesScreen(refresh: true);
-        }
       },
       tileColor: hasExpired ? Colors.grey[100] : null,
     );

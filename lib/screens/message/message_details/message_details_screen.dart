@@ -277,10 +277,34 @@ class MessageDetailsScreen extends StatelessWidget {
                     final time = DateFormat('HH:mm').format(
                       DateTime.parse(message['created_at']),
                     );
+                    final isSystemMessage = message['type'] == 'system';
 
                     // Check if we should show the sender name
-                    final showSenderName = !isMe && (index == 0 || 
+                    final showSenderName = !isMe && !isSystemMessage && (index == 0 || 
                       controller.messages[index - 1]['sender_id'] != message['sender_id']);
+
+                    if (isSystemMessage) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.grey[200],
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              message['content'],
+                              style: TextStyle(
+                                color: Colors.grey[700],
+                                fontSize: 12,
+                                fontStyle: FontStyle.italic,
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
 
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),

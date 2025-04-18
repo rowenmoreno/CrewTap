@@ -4,13 +4,18 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../../../services/supabase_service.dart';
 
-class AddMembersDialog extends StatelessWidget {
+class AddMembersDialog extends StatefulWidget  {
   final List<Map<String, dynamic>> users;
-  final List<String> selectedUserIds = [];
+  final selectedUserIds = <String>[];
 
   AddMembersDialog({super.key, required this.users});
 
   @override
+  State<AddMembersDialog> createState() => _AddMembersDialogState();
+}
+
+class _AddMembersDialogState extends State<AddMembersDialog> {
+  @override 
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Add Members'),
@@ -18,19 +23,20 @@ class AddMembersDialog extends StatelessWidget {
         width: double.maxFinite,
         height: 300,
         child: ListView.builder(
-          itemCount: users.length,
+          itemCount: widget.users.length,
           itemBuilder: (context, index) {
-            final user = users[index];
+            final user = widget.users[index];
             return CheckboxListTile(
               title: Text(user['display_name'] ?? 'Unknown'),
               subtitle: Text('${user['position'] ?? ''} at ${user['company_name'] ?? ''}'),
-              value: selectedUserIds.contains(user['id']),
+              value: widget.selectedUserIds.contains(user['id']),
               onChanged: (value) {
                 if (value == true) {
-                  selectedUserIds.add(user['id']);
+                  widget.selectedUserIds.add(user['id']);
                 } else {
-                  selectedUserIds.remove(user['id']);
+                  widget.selectedUserIds.remove(user['id']);
                 }
+                setState(() {});
               },
             );
           },
@@ -42,7 +48,7 @@ class AddMembersDialog extends StatelessWidget {
           child: const Text('Cancel'),
         ),
         TextButton(
-          onPressed: () => Navigator.pop(context, selectedUserIds),
+          onPressed: () => Navigator.pop(context, widget.selectedUserIds),
           child: const Text('Add'),
         ),
       ],
@@ -178,6 +184,20 @@ class MessageDetailsController extends GetxController {
     }
   }
 
+  Future<void> _createSystemMessage(String content) async {
+    try {
+      await _supabase.from('chat_messages').insert({
+        'chat_id': chatId,
+        'sender_id': _supabase.auth.currentUser?.id,
+        'content': content,
+        'status': 'sent',
+        'type': 'system',
+      });
+    } catch (e) {
+      print('Error creating system message: $e');
+    }
+  }
+
   Future<void> addMembers() async {
     try {
       // Get current participants
@@ -210,6 +230,14 @@ class MessageDetailsController extends GetxController {
       );
 
       if (selectedUsers != null && selectedUsers.isNotEmpty) {
+        // Get user names for system message
+        final newMembers = await _supabase
+            .from('profiles')
+            .select('display_name')
+            .inFilter('id', selectedUsers);
+        
+        final memberNames = newMembers.map((m) => m['display_name'] as String).join(', ');
+
         // Add selected users to chat participants
         for (final userId in selectedUsers) {
           await _supabase.from('chat_participants').insert({
@@ -217,6 +245,9 @@ class MessageDetailsController extends GetxController {
             'user_id': userId,
           });
         }
+
+        // Create system message
+        await _createSystemMessage('$memberNames joined the group');
 
         // Refresh participants list
         await loadParticipants();
@@ -280,20 +311,40 @@ class MessageDetailsController extends GetxController {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
+      // Get user's display name for system message
+      final userProfile = await _supabase
+          .from('profiles')
+          .select('display_name')
+          .eq('id', userId)
+          .single();
+      
+      final displayName = userProfile['display_name'] as String? ?? 'Unknown';
+
+      // Remove user from chat participants
       await _supabase
           .from('chat_participants')
           .delete()
           .eq('chat_id', chatId)
           .eq('user_id', userId);
 
-      Get.back(result: true);
+      // Create system message
+      await _createSystemMessage('$displayName left the group');
+
+      // Refresh participants list
+      await loadParticipants();
+      memberUpdateCount.value++;
+
+      Get.back();
     } catch (e) {
       Get.snackbar(
         'Error',
         'Failed to leave group: ${e.toString()}',
+        icon: const Icon(Icons.error, color: Colors.white),
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red,
         colorText: Colors.white,
+        borderRadius: 10,
+        margin: const EdgeInsets.all(8),
       );
     }
   }
