@@ -3,6 +3,7 @@ import '../../services/supabase_service.dart';
 import 'dart:developer' as developer;
 import 'edit_profile_screen.dart';
 import '../../theme/app_theme.dart';
+import 'settings_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -183,6 +184,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               );
               _loadProfile(); // Reload profile after returning from edit screen
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.settings_outlined),
+            title: const Text('Settings'),
+            trailing: const Icon(Icons.arrow_forward_ios),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SettingsScreen(),
+                ),
+              );
             },
           ),
           ListTile(

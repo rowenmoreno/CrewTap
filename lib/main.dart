@@ -5,13 +5,13 @@ import 'package:get/get.dart';
 import 'screens/qr_scanner_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
-import 'screens/dashboard/dashboard_screen.dart';
 import 'config/supabase_config.dart';
 import 'theme/app_theme.dart';
+import 'services/theme_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
+  
   await dotenv.load(fileName: ".env");
   // Initialize Supabase
   await Supabase.initialize(
@@ -19,45 +19,36 @@ void main() async {
     anonKey: SupabaseConfig.anonKey,
   );
   
-  runApp(const MyApp());
-}
+  // Initialize ThemeService
+  final themeService = Get.put(ThemeService());
+  
+  runApp(GetMaterialApp(
+    title: 'CrewLink',
+    theme: AppTheme.lightTheme,
+    darkTheme: AppTheme.darkTheme,
+    themeMode: themeService.themeMode,
+    debugShowCheckedModeBanner: false,
+    home: Scaffold(
+      body: StreamBuilder<AuthState>(
+        stream: Supabase.instance.client.auth.onAuthStateChange,
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return const Center(
+              child: Text('An error occurred'),
+            );
+          }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+          final session = snapshot.data?.session;
+          if (session == null) {
+            return const OnboardingScreen();
+          }
 
-  @override
-  Widget build(BuildContext context) {
-    return GetMaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'CrewTap',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system, // This will automatically switch between light and dark theme based on system settings
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const AuthWrapper(),
-        '/home': (context) => const MainScreen(),
-      },
-    );
-  }
-}
-
-class AuthWrapper extends StatelessWidget {
-  const AuthWrapper({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<AuthState>(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        // If there's an active session, show the main screen
-        if (snapshot.hasData && snapshot.data!.session != null) {
           return const MainScreen();
-        }
-        // If there's no session, show the onboarding screen
-        return const OnboardingScreen();
-      },
-    
-    );
-  }
+        },
+      ),
+    ),
+    routes: {
+      '/qr_scanner': (context) => const QRScannerScreen(),
+    },
+  ));
 }
