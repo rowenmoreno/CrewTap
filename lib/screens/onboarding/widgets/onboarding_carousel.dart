@@ -106,8 +106,10 @@ class _OnboardingCarouselState extends State<OnboardingCarousel> {
         Padding(
           padding: const EdgeInsets.only(bottom: 32.0),
           child: ElevatedButton(
-            onPressed: widget.onComplete,
-            child: const Text('Get Started'),
+            onPressed: _currentIndex == _slides.length - 1
+                ? widget.onComplete
+                : () => _carouselController.nextPage(),
+            child: Text(_currentIndex == _slides.length - 1 ? 'Get Started' : 'Next'),
           ),
         ),
       ],
