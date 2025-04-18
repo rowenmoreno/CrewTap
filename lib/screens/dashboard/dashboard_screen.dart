@@ -224,33 +224,33 @@ class DashboardScreen extends StatelessWidget {
                     //     Get.to(() => const CrewConnectScreen());
                     //   },
                     // ),
-                    // _buildQuickAccessCard(
-                    //   icon: Icons.restaurant,
-                    //   title: 'Meal Discounts',
-                    //   subtitle: 'Find food deals',
-                    //   color: Colors.orange,
-                    //   onTap: () {
-                    //     // TODO: Implement meal discounts navigation
-                    //   },
-                    // ),
-                    // _buildQuickAccessCard(
-                    //   icon: Icons.hotel,
-                    //   title: 'Crew Hotels',
-                    //   subtitle: 'Book accommodations',
-                    //   color: Colors.purple,
-                    //   onTap: () {
-                    //     // TODO: Implement crew hotels navigation
-                    //   },
-                    // ),
-                    // _buildQuickAccessCard(
-                    //   icon: Icons.map,
-                    //   title: 'Terminal Map',
-                    //   subtitle: 'Navigate the airport',
-                    //   color: Colors.red,
-                    //   onTap: () {
-                    //     // TODO: Implement terminal map navigation
-                    //   },
-                    // ),
+                    _buildQuickAccessCard(
+                      icon: Icons.restaurant,
+                      title: 'Meal Discounts',
+                      subtitle: 'Find food deals',
+                      color: Colors.orange,
+                      onTap: () {
+                        // TODO: Implement meal discounts navigation
+                      },
+                    ),
+                    _buildQuickAccessCard(
+                      icon: Icons.hotel,
+                      title: 'Crew Hotels',
+                      subtitle: 'Book accommodations',
+                      color: Colors.purple,
+                      onTap: () {
+                        // TODO: Implement crew hotels navigation
+                      },
+                    ),
+                    _buildQuickAccessCard(
+                      icon: Icons.map,
+                      title: 'Terminal Map',
+                      subtitle: 'Navigate the airport',
+                      color: Colors.red,
+                      onTap: () {
+                        // TODO: Implement terminal map navigation
+                      },
+                    ),
                     // _buildQuickAccessCard(
                     //   icon: Icons.emergency,
                     //   title: 'Emergency Contacts',

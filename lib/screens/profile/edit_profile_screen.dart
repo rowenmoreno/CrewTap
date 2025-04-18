@@ -285,6 +285,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
                 displayStringForOption: (option) => '${option['name']}',
                 fieldViewBuilder: (context, controller, focusNode, onFieldSubmitted) {
+                  if (controller.text.isEmpty && _companyNameController.text.isNotEmpty) {
+                    controller.text = _companyNameController.text;
+                  }
+                  
                   return TextFormField(
                     controller: controller,
                     focusNode: focusNode,
