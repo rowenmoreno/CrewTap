@@ -20,12 +20,28 @@ class MessageDetailsScreen extends StatelessWidget {
     required this.recipientId,
   });
 
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = Get.put(MessageDetailsController(
       chatId: chatId,
       recipientName: recipientName,
     ));
+
+    // Listen to messages changes and scroll to bottom
+    ever(controller.messages, (_) {
+      // Use Future.delayed to ensure the layout is complete
+      Future.delayed(const Duration(milliseconds: 100), _scrollToBottom);
+    });
 
     return WillPopScope(
       onWillPop: () async {
@@ -262,12 +278,16 @@ class MessageDetailsScreen extends StatelessWidget {
                       DateTime.parse(message['created_at']),
                     );
 
+                    // Check if we should show the sender name
+                    final showSenderName = !isMe && (index == 0 || 
+                      controller.messages[index - 1]['sender_id'] != message['sender_id']);
+
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8),
                       child: Column(
                         crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                         children: [
-                          if (!isMe)
+                          if (showSenderName)
                             Padding(
                               padding: const EdgeInsets.only(left: 4, bottom: 4),
                               child: Text(
@@ -279,6 +299,9 @@ class MessageDetailsScreen extends StatelessWidget {
                               ),
                             ),
                           Container(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            ),
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                             decoration: BoxDecoration(
                               color: isMe ? Colors.blue[900] : Colors.blue[100],
@@ -328,14 +351,23 @@ class MessageDetailsScreen extends StatelessWidget {
                       ),
                       maxLines: null,
                       textCapitalization: TextCapitalization.sentences,
+                      onSubmitted: (text) {
+                        if (text.trim().isNotEmpty) {
+                          controller.sendMessage(text);
+                          _messageController.clear();
+                        }
+                      },
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.send),
                     color: Colors.blue[300],
                     onPressed: () {
-                      controller.sendMessage(_messageController.text);
-                      _messageController.clear();
+                      final text = _messageController.text;
+                      if (text.trim().isNotEmpty) {
+                        controller.sendMessage(text);
+                        _messageController.clear();
+                      }
                     },
                   ),
                 ],
