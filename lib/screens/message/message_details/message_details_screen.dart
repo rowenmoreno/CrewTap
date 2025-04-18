@@ -112,7 +112,7 @@ class MessageDetailsScreen extends StatelessWidget {
                     value: 'rename',
                     child: Row(
                       children: [
-                        Icon(Icons.edit, size: 20),
+                        Icon(Icons.edit, size: 20, color: AppColors.midnightNavy),
                         SizedBox(width: 8),
                         Text('Rename Group'),
                       ],
@@ -122,7 +122,7 @@ class MessageDetailsScreen extends StatelessWidget {
                     value: 'add_members',
                     child: Row(
                       children: [
-                        Icon(Icons.person_add, size: 20),
+                        Icon(Icons.person_add, size: 20, color: AppColors.midnightNavy),
                         SizedBox(width: 8),
                         Text('Add Members'),
                       ],
@@ -132,7 +132,7 @@ class MessageDetailsScreen extends StatelessWidget {
                     value: 'share',
                     child: Row(
                       children: [
-                        Icon(Icons.qr_code, size: 20),
+                        Icon(Icons.qr_code, size: 20, color: AppColors.midnightNavy),
                         SizedBox(width: 8),
                         Text('Share Group'),
                       ],
@@ -142,7 +142,7 @@ class MessageDetailsScreen extends StatelessWidget {
                     value: 'leave',
                     child: Row(
                       children: [
-                        Icon(Icons.exit_to_app, size: 20),
+                        Icon(Icons.exit_to_app, size: 20, color: AppColors.midnightNavy),
                         SizedBox(width: 8),
                         Text('Leave Group'),
                       ],

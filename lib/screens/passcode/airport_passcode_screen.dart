@@ -96,7 +96,6 @@ class _AirportPasscodeScreenState extends State<AirportPasscodeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Airport Passcodes'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         
         leading: IconButton(
           icon: Icon(Icons.arrow_back),

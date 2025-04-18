@@ -26,9 +26,13 @@ class _AddMembersDialogState extends State<AddMembersDialog> {
           itemCount: widget.users.length,
           itemBuilder: (context, index) {
             final user = widget.users[index];
+            var position = '';
+            if (user['position'] != null && user['company_name'] != null) { 
+              position = '${user['position']} at ${user['company_name']}';
+            }
             return CheckboxListTile(
               title: Text(user['display_name'] ?? 'Unknown'),
-              subtitle: Text('${user['position'] ?? ''} at ${user['company_name'] ?? ''}'),
+              subtitle: position.isNotEmpty ? Text(position) : null,
               value: widget.selectedUserIds.contains(user['id']),
               onChanged: (value) {
                 if (value == true) {
