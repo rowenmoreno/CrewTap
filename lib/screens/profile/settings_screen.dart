@@ -73,21 +73,8 @@ class SettingsScreen extends StatelessWidget {
           //   icon: Icons.storage_outlined,
           //   title: 'Storage',
           //   subtitle: 'Manage app storage',
-          //   onTap: () {
-          //     // TODO: Implement storage settings
-          //   },
-          // ),
-
-          // Support Section
+          //   onTap: ()
           _buildSectionHeader('Support'),
-          // _buildSettingsTile(
-          //   icon: Icons.help_outline,
-          //   title: 'Help Center',
-          //   subtitle: 'Get help with the app',
-          //   onTap: () {
-          //     // TODO: Implement help center
-          //   },
-          // ),
           _buildSettingsTile(
             icon: Icons.feedback_outlined,
             title: 'Send Feedback',

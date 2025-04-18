@@ -36,39 +36,6 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
               });
             },
           ),
-          // _buildSwitchTile(
-          //   title: 'Group Notifications',
-          //   subtitle: 'Receive notifications for group activities',
-          //   value: _groupNotifications,
-          //   onChanged: (value) {
-          //     setState(() {
-          //       _groupNotifications = value;
-          //     });
-          //   },
-          // ),
-          // _buildSwitchTile(
-          //   title: 'Mention Notifications',
-          //   subtitle: 'Receive notifications when you\'re mentioned',
-          //   value: _mentionNotifications,
-          //   onChanged: (value) {
-          //     setState(() {
-          //       _mentionNotifications = value;
-          //     });
-          //   },
-          // ),
-
-          // Email Notifications Section
-          // _buildSectionHeader('Email Notifications'),
-          // _buildSwitchTile(
-          //   title: 'Email Notifications',
-          //   subtitle: 'Receive email notifications for important updates',
-          //   value: _emailNotifications,
-          //   onChanged: (value) {
-          //     setState(() {
-          //       _emailNotifications = value;
-          //     });
-          //   },
-          // ),
 
           // Notification Preferences Section
           // _buildSectionHeader('Notification Preferences'),

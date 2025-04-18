@@ -56,7 +56,7 @@ class DashboardScreen extends StatelessWidget {
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person),
+                    Icon(Icons.person, color: AppColors.midnightNavy),
                     SizedBox(width: 8),
                     Text('Profile'),
                   ],
@@ -66,7 +66,7 @@ class DashboardScreen extends StatelessWidget {
                 value: 'logout',
                 child: Row(
                   children: [
-                    Icon(Icons.logout),
+                    Icon(Icons.logout, color: AppColors.midnightNavy),
                     SizedBox(width: 8),
                     Text('Logout'),
                   ],

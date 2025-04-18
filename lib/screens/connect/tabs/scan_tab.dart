@@ -229,7 +229,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
           ),
         );
         // Navigate to the newly joined group chat
-        Navigator.pushReplacement(
+        Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => MessageDetailsScreen(
@@ -410,7 +410,7 @@ class _ScanTabState extends State<ScanTab> with WidgetsBindingObserver {
                       ),
                     );
                     // Navigate to the new group chat
-                    Navigator.pushReplacement(
+                    Navigator.push(
                       context,
                       MaterialPageRoute(
                         builder: (context) => MessageDetailsScreen(
